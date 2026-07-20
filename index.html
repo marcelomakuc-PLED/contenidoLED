@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pendón LED — Información en Vivo</title>
+<link rel="preconnect" href="https://api.open-meteo.com">
+<link rel="preconnect" href="https://mindicador.cl">
+<link rel="preconnect" href="https://api.allorigins.win">
 <style>
 /* ============================================================
    PENDÓN LED P1.8 / P2.5 — Aspecto 0,33:1 (ancho:alto = 1:3)
@@ -29,6 +32,7 @@ html, body {
 /* Escenario de diseño fijo, escalado por JS manteniendo 1:3 */
 #stage {
   width: 384px; height: 1152px;
+  flex: 0 0 auto; /* nunca se encoge: el tamaño lo controla solo el escalado */
   background: #000;
   display: flex; flex-direction: column;
   transform-origin: center center;
@@ -377,7 +381,7 @@ const CONFIG = {
   // Proxy CORS para leer RSS desde el navegador del player
   proxyRSS: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
   maxNoticias: 10,
-  segundosPorNoticia: 9,
+  segundosPorNoticia: 12,
   refrescoClimaMin: 15,
   refrescoIndicadoresMin: 30,
   refrescoNoticiasMin: 10,
@@ -388,10 +392,16 @@ const CONFIG = {
 const stage = document.getElementById('stage');
 function fitStage() {
   const s = Math.min(window.innerWidth / 384, window.innerHeight / 1152);
-  stage.style.transform = 'scale(' + s + ')';
+  stage.style.transform = 'scale(' + s.toFixed(4) + ')';
 }
 window.addEventListener('resize', fitStage);
+window.addEventListener('orientationchange', fitStage);
+window.addEventListener('load', fitStage);
 fitStage();
+
+/* ---------- Memoria local: muestra al instante lo último conocido ---------- */
+const guardar = (k, v) => { try { localStorage.setItem('pled_' + k, JSON.stringify(v)); } catch (e) {} };
+const leer = k => { try { return JSON.parse(localStorage.getItem('pled_' + k)); } catch (e) { return null; } };
 
 /* ---------- Reloj y fecha ---------- */
 const DIAS  = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
@@ -463,6 +473,17 @@ function iconoClima(code) {
 }
 
 /* ---------- Clima (Open-Meteo, sin API key) ---------- */
+function pintarClima(w) {
+  const ic = iconoClima(w.code);
+  document.getElementById('wx-city').textContent = CONFIG.ciudad.toUpperCase();
+  document.getElementById('wx-icon').innerHTML = ic.svg;
+  document.getElementById('wx-temp').innerHTML = Math.round(w.t) + '<sup>°C</sup>';
+  document.getElementById('wx-desc').textContent = ic.txt;
+  document.getElementById('wx-max').textContent = Math.round(w.max) + '°';
+  document.getElementById('wx-min').textContent = Math.round(w.min) + '°';
+  document.getElementById('wx-hum').textContent = Math.round(w.hum) + '%';
+  document.getElementById('wx-wind').textContent = Math.round(w.viento) + ' km/h';
+}
 async function cargarClima() {
   try {
     const u = 'https://api.open-meteo.com/v1/forecast'
@@ -472,18 +493,14 @@ async function cargarClima() {
       + '&timezone=' + encodeURIComponent(CONFIG.zonaHoraria);
     const r = await fetch(u);
     const d = await r.json();
-    const c = d.current;
-    const ic = iconoClima(c.weather_code);
-    document.getElementById('wx-city').textContent = CONFIG.ciudad.toUpperCase();
-    document.getElementById('wx-icon').innerHTML = ic.svg;
-    document.getElementById('wx-temp').innerHTML = Math.round(c.temperature_2m) + '<sup>°C</sup>';
-    document.getElementById('wx-desc').textContent = ic.txt;
-    document.getElementById('wx-max').textContent = Math.round(d.daily.temperature_2m_max[0]) + '°';
-    document.getElementById('wx-min').textContent = Math.round(d.daily.temperature_2m_min[0]) + '°';
-    document.getElementById('wx-hum').textContent = Math.round(c.relative_humidity_2m) + '%';
-    document.getElementById('wx-wind').textContent = Math.round(c.wind_speed_10m) + ' km/h';
+    const w = {
+      code: d.current.weather_code, t: d.current.temperature_2m,
+      hum: d.current.relative_humidity_2m, viento: d.current.wind_speed_10m,
+      max: d.daily.temperature_2m_max[0], min: d.daily.temperature_2m_min[0],
+    };
+    pintarClima(w); guardar('clima', w);
   } catch (e) {
-    document.getElementById('wx-desc').textContent = 'SIN CONEXIÓN';
+    if (!leer('clima')) document.getElementById('wx-desc').textContent = 'SIN CONEXIÓN';
   }
 }
 
@@ -497,21 +514,38 @@ function pintarDelta(el, hoy, ayer) {
   else if (dif < 0) { el.textContent = '▼ ' + pct + '%';  el.className = 'delta down'; }
   else              { el.textContent = '= 0,00%';         el.className = 'delta flat'; }
 }
-async function cargarIndicadores() {
-  for (const ind of ['dolar', 'uf', 'utm']) {
-    try {
-      const r = await fetch('https://mindicador.cl/api/' + ind);
-      const d = await r.json();
-      const serie = d.serie || [];
-      if (!serie.length) continue;
-      document.getElementById('val-' + ind).textContent = fmtCLP(serie[0].valor);
-      pintarDelta(document.getElementById('dlt-' + ind), serie[0].valor, serie[1] && serie[1].valor);
-    } catch (e) { /* mantiene el último valor mostrado */ }
+function pintarIndicadores(datos) {
+  for (const n of ['dolar', 'uf', 'utm']) {
+    const d = datos[n];
+    if (!d) continue;
+    document.getElementById('val-' + n).textContent = fmtCLP(d.hoy);
+    pintarDelta(document.getElementById('dlt-' + n), d.hoy, d.ayer);
   }
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: CONFIG.zonaHoraria }));
-  const p = n => String(n).padStart(2, '0');
-  document.getElementById('ind-updated').textContent =
-    'Fuente: mindicador.cl · Actualizado ' + p(now.getHours()) + ':' + p(now.getMinutes());
+  if (datos.hora)
+    document.getElementById('ind-updated').textContent =
+      'Fuente: mindicador.cl · Actualizado ' + datos.hora;
+}
+async function cargarIndicadores() {
+  const nombres = ['dolar', 'uf', 'utm'];
+  // las 3 consultas en paralelo (antes eran en serie y demoraban el triple)
+  const res = await Promise.allSettled(
+    nombres.map(n => fetch('https://mindicador.cl/api/' + n).then(r => r.json()))
+  );
+  const datos = leer('ind') || {};
+  let ok = false;
+  res.forEach((r, i) => {
+    if (r.status !== 'fulfilled') return;
+    const serie = r.value.serie || [];
+    if (!serie.length) return;
+    datos[nombres[i]] = { hoy: serie[0].valor, ayer: serie[1] && serie[1].valor };
+    ok = true;
+  });
+  if (ok) {
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: CONFIG.zonaHoraria }));
+    const p = n => String(n).padStart(2, '0');
+    datos.hora = p(now.getHours()) + ':' + p(now.getMinutes());
+    pintarIndicadores(datos); guardar('ind', datos);
+  }
 }
 
 /* ---------- Noticias RSS ---------- */
@@ -546,6 +580,7 @@ async function cargarNoticias() {
       listas.forEach(l => { if (l[i]) mezcla.push(l[i]); });
     noticias = mezcla.slice(0, CONFIG.maxNoticias * CONFIG.feeds.length);
     idxNoticia = 0;
+    guardar('news', noticias);
     armarTicker();
   } else if (!noticias.length) {
     noticias = [{ fuente: 'INFO', titulo: 'Sin conexión a noticias. Reintentando…' }];
@@ -586,9 +621,18 @@ function armarTicker() {
 }
 
 /* ---------- Arranque y ciclos de actualización ---------- */
+// 1) pinta al instante lo último conocido (memoria local)…
+const cacheClima = leer('clima');
+if (cacheClima) pintarClima(cacheClima);
+const cacheInd = leer('ind');
+if (cacheInd) pintarIndicadores(cacheInd);
+const cacheNews = leer('news');
+if (cacheNews && cacheNews.length) { noticias = cacheNews; armarTicker(); mostrarNoticia(); }
+
+// 2) …y actualiza todo por detrás con datos frescos
 cargarClima();
 cargarIndicadores().then(armarTicker);
-cargarNoticias().then(mostrarNoticia);
+cargarNoticias().then(() => { if (idxNoticia === 0) mostrarNoticia(); });
 
 setInterval(mostrarNoticia, CONFIG.segundosPorNoticia * 1000);
 setInterval(cargarClima, CONFIG.refrescoClimaMin * 60 * 1000);
