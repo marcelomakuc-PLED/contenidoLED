@@ -36,24 +36,43 @@ html, body {
   color: #fff;
 }
 
-/* ---------- 1. CABECERA: HORA Y FECHA ---------- */
+/* ---------- 1. CABECERA: LOGO, HORA Y FECHA ---------- */
 #header {
-  height: 150px;
+  height: 215px;
   background: linear-gradient(160deg, #1a0533 0%, #3d0a6e 50%, #0a1a4d 100%);
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   border-bottom: 4px solid #00e5ff;
   position: relative;
+  gap: 4px; padding-top: 6px;
 }
+#logo {
+  height: 96px;
+  display: flex; align-items: center; justify-content: center;
+}
+#logo img {
+  max-height: 96px; max-width: 330px;
+  filter: drop-shadow(0 0 10px rgba(0,229,255,.45));
+}
+/* Logotipo de respaldo si no existe logo.png */
+#logo-text {
+  display: none; align-items: baseline;
+  font-size: 46px; font-weight: 900; line-height: 1;
+  letter-spacing: 3px;
+}
+#logo-text .p { color: #ffffff; text-shadow: 0 0 12px rgba(255,255,255,.6); }
+#logo-text .l { color: #ff1744; text-shadow: 0 0 12px #ff1744; }
+#logo-text .e { color: #00e676; text-shadow: 0 0 12px #00e676; }
+#logo-text .d { color: #2979ff; text-shadow: 0 0 12px #2979ff; }
 #clock {
-  font-size: 78px; font-weight: 900; line-height: 1;
+  font-size: 66px; font-weight: 900; line-height: 1;
   color: #ffffff;
   text-shadow: 0 0 18px #00e5ff, 0 0 40px #2979ff;
   letter-spacing: 2px;
 }
-#clock .sec { font-size: 38px; color: #00e5ff; }
+#clock .sec { font-size: 34px; color: #00e5ff; }
 #dateline {
-  margin-top: 8px;
+  margin-top: 2px;
   font-size: 21px; font-weight: 900;
   color: #ffd600; text-transform: uppercase;
   letter-spacing: 1px;
@@ -73,7 +92,7 @@ html, body {
 
 /* ---------- 2. EL TIEMPO ---------- */
 #weather {
-  height: 315px;
+  height: 300px;
   background: linear-gradient(180deg, #001b3d 0%, #003c8f 60%, #0059b2 100%);
   border-bottom: 4px solid #ffd600;
   display: flex; flex-direction: column;
@@ -87,9 +106,9 @@ html, body {
 #wx-main {
   flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
 }
-#wx-icon { width: 118px; height: 118px; flex: 0 0 auto; }
+#wx-icon { width: 108px; height: 108px; flex: 0 0 auto; }
 #wx-temp {
-  font-size: 92px; font-weight: 900; line-height: 1;
+  font-size: 84px; font-weight: 900; line-height: 1;
   color: #ffffff; text-shadow: 0 0 22px #00b0ff;
 }
 #wx-temp sup { font-size: 42px; color: #ffd600; }
@@ -127,7 +146,7 @@ html, body {
 
 /* ---------- 3. INDICADORES ECONÓMICOS ---------- */
 #indicators {
-  height: 395px;
+  height: 375px;
   background: #050505;
   display: flex; flex-direction: column;
   border-bottom: 4px solid #d500f9;
@@ -136,7 +155,7 @@ html, body {
 #indicators .sec-title::before, #indicators .sec-title::after { background: #69f0ae; }
 #ind-cards {
   flex: 1; display: flex; flex-direction: column;
-  gap: 12px; padding: 4px 14px 14px;
+  gap: 10px; padding: 4px 14px 10px;
 }
 .ind-card {
   flex: 1; border-radius: 18px;
@@ -145,15 +164,15 @@ html, body {
   border: 4px solid; position: relative; overflow: hidden;
 }
 .ind-card .badge {
-  width: 78px; height: 78px; border-radius: 16px;
+  width: 68px; height: 68px; border-radius: 16px;
   display: flex; align-items: center; justify-content: center;
   font-size: 26px; font-weight: 900; color: #000;
   flex: 0 0 auto;
 }
 .ind-card .info { flex: 1; }
-.ind-card .name { font-size: 19px; font-weight: 900; letter-spacing: 1px; }
-.ind-card .value { font-size: 42px; font-weight: 900; line-height: 1.05; color: #fff; }
-.ind-card .delta { font-size: 18px; font-weight: 900; margin-top: 2px; }
+.ind-card .name { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
+.ind-card .value { font-size: 39px; font-weight: 900; line-height: 1.05; color: #fff; }
+.ind-card .delta { font-size: 16px; font-weight: 900; margin-top: 2px; }
 .delta.up   { color: #69f0ae; }
 .delta.down { color: #ff5252; }
 .delta.flat { color: #b0bec5; }
@@ -203,7 +222,7 @@ html, body {
 @keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
 #news-card {
   flex: 1; display: flex; flex-direction: column;
-  justify-content: center; padding: 6px 20px 10px; gap: 12px;
+  justify-content: center; padding: 4px 20px 8px; gap: 10px;
 }
 #news-source {
   align-self: flex-start;
@@ -213,7 +232,7 @@ html, body {
   text-transform: uppercase; letter-spacing: 1px;
 }
 #news-title {
-  font-size: 26px; font-weight: 900; line-height: 1.2;
+  font-size: 25px; font-weight: 900; line-height: 1.2;
   color: #ffffff;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
   overflow: hidden;
@@ -225,15 +244,15 @@ html, body {
 }
 #news-progress {
   height: 8px; background: rgba(255,255,255,.15);
-  border-radius: 4px; overflow: hidden; margin: 0 20px 14px;
+  border-radius: 4px; overflow: hidden; margin: 0 20px 10px;
 }
 #news-bar {
   height: 100%; width: 0%;
   background: linear-gradient(90deg, #ffd600, #ff1744);
 }
 #news-count {
-  text-align: center; font-size: 15px; font-weight: 900;
-  color: #ff8a80; padding-bottom: 6px;
+  text-align: center; font-size: 14px; font-weight: 900;
+  color: #ff8a80; padding-bottom: 3px;
 }
 
 /* ---------- 5. CINTA INFERIOR ---------- */
@@ -263,8 +282,13 @@ html, body {
 <div id="viewport">
   <div id="stage">
 
-    <!-- 1. HORA / FECHA -->
+    <!-- 1. LOGO / HORA / FECHA -->
     <div id="header">
+      <div id="logo">
+        <img src="logo.png" alt="PLED"
+             onerror="this.style.display='none';document.getElementById('logo-text').style.display='flex'">
+        <div id="logo-text"><span class="p">P</span><span class="l">L</span><span class="e">E</span><span class="d">D</span></div>
+      </div>
       <div id="clock">--:--<span class="sec">--</span></div>
       <div id="dateline">Cargando…</div>
     </div>

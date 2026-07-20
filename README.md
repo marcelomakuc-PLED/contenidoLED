@@ -10,7 +10,7 @@ librerías externas, sin API keys. Basta abrirlo en el navegador del player.
 
 | Sección | Contenido | Fuente | Actualización |
 |---|---|---|---|
-| Cabecera | Hora (con segundos) y fecha en español | Reloj local (zona `America/Santiago`) | Cada segundo |
+| Cabecera | Logo PLED, hora (con segundos) y fecha en español | `logo.png` + reloj local (zona `America/Santiago`) | Cada segundo |
 | El Tiempo | Temperatura, ícono animado, máx/mín, humedad, viento | [Open-Meteo](https://open-meteo.com) (gratis, sin key) | Cada 15 min |
 | Indicadores | Dólar observado, UF y UTM con variación diaria ▲▼ | [mindicador.cl](https://mindicador.cl) | Cada 30 min |
 | Noticias | Titulares RSS rotativos con barra de progreso | Cooperativa, Emol, La Tercera | Cada 10 min |
@@ -36,9 +36,17 @@ resoluciones típicas de pendón:
 - P2.5 → ej. 320×960, 336×1008
 - P1.8 → ej. 480×1440, 512×1536
 
+## Logo
+
+El logo de PLED está en `logo.png` (blanco sobre fondo transparente,
+recortado y optimizado desde `logo nuevo blanco.png` de la rama `main`)
+y se muestra centrado sobre la hora. Para cambiarlo basta reemplazar
+`logo.png` junto al `index.html`; si el archivo no existe, se muestra un
+logotipo "PLED" de respaldo dibujado en texto.
+
 ## Instalación en el player
 
-1. Copie `index.html` al player (o publíquelo en una URL) y ábralo en el
+1. Copie `index.html` y `logo.png` al player (o publíquelos en una URL) y ábralo en el
    navegador / módulo HTML del software del LED (NovaStar, HD Player,
    Xibo, etc.) en modo kiosco / pantalla completa.
 2. Requiere **conexión a internet** para clima, indicadores y noticias.
