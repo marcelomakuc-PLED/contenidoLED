@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pendón LED — Información en Vivo</title>
+<style>
+/* ============================================================
+   PENDÓN LED P1.8 / P2.5 — Aspecto 0,33:1 (ancho:alto = 1:3)
+   Diseño base: 384 × 1152 px (se escala automático a la pantalla)
+   Fondo negro + colores saturados = máximo brillo y contraste LED
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #000;
+  overflow: hidden;
+  font-family: 'Arial Black', 'Arial', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: none; /* bordes duros = más nítido en LED */
+}
+
+#viewport {
+  width: 100vw; height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+}
+
+/* Escenario de diseño fijo, escalado por JS manteniendo 1:3 */
+#stage {
+  width: 384px; height: 1152px;
+  background: #000;
+  display: flex; flex-direction: column;
+  transform-origin: center center;
+  position: relative;
+  color: #fff;
+}
+
+/* ---------- 1. CABECERA: LOGO, HORA Y FECHA ---------- */
+#header {
+  height: 215px;
+  background: linear-gradient(160deg, #1a0533 0%, #3d0a6e 50%, #0a1a4d 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  border-bottom: 4px solid #00e5ff;
+  position: relative;
+  gap: 4px; padding-top: 6px;
+}
+#logo {
+  height: 96px;
+  display: flex; align-items: center; justify-content: center;
+}
+#logo img {
+  max-height: 96px; max-width: 330px;
+  filter: drop-shadow(0 0 10px rgba(0,229,255,.45));
+}
+/* Logotipo de respaldo si no existe logo.png */
+#logo-text {
+  display: none; align-items: baseline;
+  font-size: 46px; font-weight: 900; line-height: 1;
+  letter-spacing: 3px;
+}
+#logo-text .p { color: #ffffff; text-shadow: 0 0 12px rgba(255,255,255,.6); }
+#logo-text .l { color: #ff1744; text-shadow: 0 0 12px #ff1744; }
+#logo-text .e { color: #00e676; text-shadow: 0 0 12px #00e676; }
+#logo-text .d { color: #2979ff; text-shadow: 0 0 12px #2979ff; }
+#clock {
+  font-size: 66px; font-weight: 900; line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 0 18px #00e5ff, 0 0 40px #2979ff;
+  letter-spacing: 2px;
+}
+#clock .sec { font-size: 34px; color: #00e5ff; }
+#dateline {
+  margin-top: 2px;
+  font-size: 21px; font-weight: 900;
+  color: #ffd600; text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ---------- Títulos de sección ---------- */
+.sec-title {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 24px; font-weight: 900; letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 10px 0 6px;
+}
+.sec-title::before, .sec-title::after {
+  content: ""; flex: 1; height: 4px; max-width: 60px;
+  border-radius: 2px;
+}
+
+/* ---------- 2. EL TIEMPO ---------- */
+#weather {
+  height: 300px;
+  background: linear-gradient(180deg, #001b3d 0%, #003c8f 60%, #0059b2 100%);
+  border-bottom: 4px solid #ffd600;
+  display: flex; flex-direction: column;
+}
+#weather .sec-title { color: #00e5ff; }
+#weather .sec-title::before, #weather .sec-title::after { background: #00e5ff; }
+#wx-city {
+  text-align: center; font-size: 20px; font-weight: 900;
+  color: #ffd600; text-transform: uppercase; letter-spacing: 2px;
+}
+#wx-main {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+}
+#wx-icon { width: 108px; height: 108px; flex: 0 0 auto; }
+#wx-temp {
+  font-size: 84px; font-weight: 900; line-height: 1;
+  color: #ffffff; text-shadow: 0 0 22px #00b0ff;
+}
+#wx-temp sup { font-size: 42px; color: #ffd600; }
+#wx-desc {
+  text-align: center; font-size: 24px; font-weight: 900;
+  color: #ffffff; text-transform: uppercase;
+}
+#wx-extra {
+  display: flex; justify-content: space-evenly;
+  padding: 10px 8px 14px;
+}
+.wx-chip {
+  background: rgba(0,0,0,.45);
+  border: 3px solid #00e5ff; border-radius: 14px;
+  padding: 6px 12px; text-align: center;
+}
+.wx-chip .lbl { font-size: 14px; color: #00e5ff; font-weight: 900; }
+.wx-chip .val { font-size: 24px; color: #fff; font-weight: 900; }
+.wx-chip.max { border-color: #ff5252; }
+.wx-chip.max .lbl { color: #ff8a80; }
+.wx-chip.min { border-color: #40c4ff; }
+.wx-chip.min .lbl { color: #80d8ff; }
+
+/* Iconos de clima animados (SVG) */
+@keyframes spin  { to { transform: rotate(360deg); } }
+@keyframes bob   { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes drop  { 0% { opacity: 0; transform: translateY(-4px);} 30% {opacity:1;} 100% { opacity: 0; transform: translateY(14px); } }
+@keyframes flash { 0%,90%,100% { opacity: 0; } 92%,96% { opacity: 1; } }
+.anim-spin { animation: spin 14s linear infinite; transform-origin: center; }
+.anim-bob  { animation: bob 3s ease-in-out infinite; }
+.anim-drop { animation: drop 1.2s linear infinite; }
+.anim-drop.d2 { animation-delay: .4s; }
+.anim-drop.d3 { animation-delay: .8s; }
+.anim-flash { animation: flash 2.5s linear infinite; }
+
+/* ---------- 3. INDICADORES ECONÓMICOS ---------- */
+#indicators {
+  height: 375px;
+  background: #050505;
+  display: flex; flex-direction: column;
+  border-bottom: 4px solid #d500f9;
+}
+#indicators .sec-title { color: #69f0ae; }
+#indicators .sec-title::before, #indicators .sec-title::after { background: #69f0ae; }
+#ind-cards {
+  flex: 1; display: flex; flex-direction: column;
+  gap: 10px; padding: 4px 14px 10px;
+}
+.ind-card {
+  flex: 1; border-radius: 18px;
+  display: flex; align-items: center;
+  padding: 0 16px; gap: 14px;
+  border: 4px solid; position: relative; overflow: hidden;
+}
+.ind-card .badge {
+  width: 68px; height: 68px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; font-weight: 900; color: #000;
+  flex: 0 0 auto;
+}
+.ind-card .info { flex: 1; }
+.ind-card .name { font-size: 18px; font-weight: 900; letter-spacing: 1px; }
+.ind-card .value { font-size: 39px; font-weight: 900; line-height: 1.05; color: #fff; }
+.ind-card .delta { font-size: 16px; font-weight: 900; margin-top: 2px; }
+.delta.up   { color: #69f0ae; }
+.delta.down { color: #ff5252; }
+.delta.flat { color: #b0bec5; }
+
+.ind-card.dolar {
+  border-color: #00e676;
+  background: linear-gradient(120deg, #00220f 0%, #004d24 100%);
+}
+.ind-card.dolar .badge { background: linear-gradient(160deg, #69f0ae, #00c853); }
+.ind-card.dolar .name  { color: #69f0ae; }
+
+.ind-card.uf {
+  border-color: #ff9100;
+  background: linear-gradient(120deg, #2b1400 0%, #6b3400 100%);
+}
+.ind-card.uf .badge { background: linear-gradient(160deg, #ffd180, #ff9100); }
+.ind-card.uf .name  { color: #ffb74d; }
+
+.ind-card.utm {
+  border-color: #e040fb;
+  background: linear-gradient(120deg, #22002b 0%, #5c0070 100%);
+}
+.ind-card.utm .badge { background: linear-gradient(160deg, #ea80fc, #d500f9); color: #fff; }
+.ind-card.utm .name  { color: #ea80fc; }
+
+#ind-updated {
+  text-align: center; font-size: 14px; font-weight: 700;
+  color: #607d8b; padding-bottom: 8px;
+}
+
+/* ---------- 4. NOTICIAS RSS ---------- */
+#news {
+  flex: 1;
+  background: linear-gradient(180deg, #1a0000 0%, #400000 100%);
+  display: flex; flex-direction: column;
+  border-bottom: 4px solid #ffd600;
+  overflow: hidden;
+}
+#news .sec-title { color: #ff5252; }
+#news .sec-title::before, #news .sec-title::after { background: #ff5252; }
+#news-live {
+  display: inline-block;
+  background: #ff1744; color: #fff;
+  font-size: 16px; padding: 2px 10px; border-radius: 8px;
+  animation: livepulse 1.6s ease-in-out infinite;
+}
+@keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+#news-card {
+  flex: 1; display: flex; flex-direction: column;
+  justify-content: center; padding: 4px 20px 8px; gap: 10px;
+}
+#news-source {
+  align-self: flex-start;
+  background: #ffd600; color: #000;
+  font-size: 17px; font-weight: 900;
+  padding: 4px 14px; border-radius: 10px;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+#news-title {
+  font-size: 25px; font-weight: 900; line-height: 1.2;
+  color: #ffffff;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#news-title.show { animation: newsin .5s ease-out; }
+@keyframes newsin {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+#news-progress {
+  height: 8px; background: rgba(255,255,255,.15);
+  border-radius: 4px; overflow: hidden; margin: 0 20px 10px;
+}
+#news-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #ffd600, #ff1744);
+}
+#news-count {
+  text-align: center; font-size: 14px; font-weight: 900;
+  color: #ff8a80; padding-bottom: 3px;
+}
+
+/* ---------- 5. CINTA INFERIOR ---------- */
+#ticker {
+  height: 62px;
+  background: #0d0d00;
+  border-top: 4px solid #ffd600;
+  display: flex; align-items: center;
+  overflow: hidden; position: relative;
+}
+#ticker-inner {
+  display: inline-flex; white-space: nowrap;
+  animation: ticker 40s linear infinite;
+}
+#ticker-inner span {
+  font-size: 30px; font-weight: 900;
+  color: #ffd600; padding: 0 30px;
+}
+#ticker-inner span b { color: #00e5ff; }
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+
+    <!-- 1. LOGO / HORA / FECHA -->
+    <div id="header">
+      <div id="logo">
+        <img src="logo.png" alt="PLED"
+             onerror="this.style.display='none';document.getElementById('logo-text').style.display='flex'">
+        <div id="logo-text"><span class="p">P</span><span class="l">L</span><span class="e">E</span><span class="d">D</span></div>
+      </div>
+      <div id="clock">--:--<span class="sec">--</span></div>
+      <div id="dateline">Cargando…</div>
+    </div>
+
+    <!-- 2. EL TIEMPO -->
+    <div id="weather">
+      <div class="sec-title">El Tiempo</div>
+      <div id="wx-city">Santiago</div>
+      <div id="wx-main">
+        <div id="wx-icon"></div>
+        <div id="wx-temp">--<sup>°C</sup></div>
+      </div>
+      <div id="wx-desc">Consultando…</div>
+      <div id="wx-extra">
+        <div class="wx-chip max"><div class="lbl">MÁX</div><div class="val" id="wx-max">--°</div></div>
+        <div class="wx-chip min"><div class="lbl">MÍN</div><div class="val" id="wx-min">--°</div></div>
+        <div class="wx-chip"><div class="lbl">HUM</div><div class="val" id="wx-hum">--%</div></div>
+        <div class="wx-chip"><div class="lbl">VIENTO</div><div class="val" id="wx-wind">--</div></div>
+      </div>
+    </div>
+
+    <!-- 3. INDICADORES -->
+    <div id="indicators">
+      <div class="sec-title">Indicadores Hoy</div>
+      <div id="ind-cards">
+        <div class="ind-card dolar">
+          <div class="badge">US$</div>
+          <div class="info">
+            <div class="name">DÓLAR OBSERVADO</div>
+            <div class="value" id="val-dolar">$ ---</div>
+            <div class="delta flat" id="dlt-dolar">—</div>
+          </div>
+        </div>
+        <div class="ind-card uf">
+          <div class="badge">UF</div>
+          <div class="info">
+            <div class="name">UNIDAD DE FOMENTO</div>
+            <div class="value" id="val-uf">$ ---</div>
+            <div class="delta flat" id="dlt-uf">—</div>
+          </div>
+        </div>
+        <div class="ind-card utm">
+          <div class="badge">UTM</div>
+          <div class="info">
+            <div class="name">UTM DEL MES</div>
+            <div class="value" id="val-utm">$ ---</div>
+            <div class="delta flat" id="dlt-utm">—</div>
+          </div>
+        </div>
+      </div>
+      <div id="ind-updated">Fuente: mindicador.cl</div>
+    </div>
+
+    <!-- 4. NOTICIAS -->
+    <div id="news">
+      <div class="sec-title"><span id="news-live">EN VIVO</span> Noticias</div>
+      <div id="news-card">
+        <div id="news-source">RSS</div>
+        <div id="news-title">Cargando titulares…</div>
+      </div>
+      <div id="news-progress"><div id="news-bar"></div></div>
+      <div id="news-count"></div>
+    </div>
+
+    <!-- 5. CINTA -->
+    <div id="ticker"><div id="ticker-inner"></div></div>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   CONFIGURACIÓN — edite estos valores según su instalación
+   ============================================================ */
+const CONFIG = {
+  ciudad: 'Santiago',
+  latitud: -33.45,
+  longitud: -70.66,
+  zonaHoraria: 'America/Santiago',
+  // Fuentes RSS (se usan todas las que respondan)
+  feeds: [
+    { nombre: 'Cooperativa', url: 'https://www.cooperativa.cl/noticias/site/tax/port/all/rss_3___1.xml' },
+    { nombre: 'Emol',        url: 'https://www.emol.com/sitemap/noticias/index.xml' },
+    { nombre: 'La Tercera',  url: 'https://www.latercera.com/arc/outboundfeeds/rss/?outputType=xml' },
+  ],
+  // Proxy CORS para leer RSS desde el navegador del player
+  proxyRSS: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  maxNoticias: 10,
+  segundosPorNoticia: 9,
+  refrescoClimaMin: 15,
+  refrescoIndicadoresMin: 30,
+  refrescoNoticiasMin: 10,
+  recargaPaginaHoras: 6,   // recarga completa (evita fugas de memoria en players)
+};
+
+/* ---------- Escalado del escenario 384×1152 (1:3) ---------- */
+const stage = document.getElementById('stage');
+function fitStage() {
+  const s = Math.min(window.innerWidth / 384, window.innerHeight / 1152);
+  stage.style.transform = 'scale(' + s + ')';
+}
+window.addEventListener('resize', fitStage);
+fitStage();
+
+/* ---------- Reloj y fecha ---------- */
+const DIAS  = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+const MESES = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+function tick() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: CONFIG.zonaHoraria }));
+  const p = n => String(n).padStart(2, '0');
+  document.getElementById('clock').innerHTML =
+    p(now.getHours()) + ':' + p(now.getMinutes()) + '<span class="sec">' + p(now.getSeconds()) + '</span>';
+  document.getElementById('dateline').textContent =
+    DIAS[now.getDay()] + ' ' + now.getDate() + ' DE ' + MESES[now.getMonth()];
+}
+setInterval(tick, 1000); tick();
+
+/* ---------- Iconos de clima (SVG animados) ---------- */
+const SVG = {
+  sol: `<svg viewBox="0 0 100 100">
+    <g class="anim-spin" style="transform-box:fill-box">
+      ${Array.from({length:8},(_,i)=>`<rect x="47" y="2" width="6" height="18" rx="3" fill="#ffd600" transform="rotate(${i*45} 50 50)"/>`).join('')}
+    </g>
+    <circle cx="50" cy="50" r="22" fill="#ffab00"/>
+    <circle cx="50" cy="50" r="17" fill="#ffd600"/>
+  </svg>`,
+  parcial: `<svg viewBox="0 0 100 100">
+    <circle cx="36" cy="36" r="17" fill="#ffd600"/>
+    <g class="anim-bob"><path d="M30 78a13 13 0 0 1 2-25.8A19 19 0 0 1 68 48a14 14 0 0 1 4 30H30z" fill="#eceff1"/></g>
+  </svg>`,
+  nublado: `<svg viewBox="0 0 100 100">
+    <g class="anim-bob">
+      <path d="M24 66a12 12 0 0 1 2-23.8A17 17 0 0 1 58 38a13 13 0 0 1 4 28H24z" fill="#b0bec5"/>
+      <path d="M34 82a11 11 0 0 1 2-21.8A15 15 0 0 1 65 56a12 12 0 0 1 3 26H34z" fill="#eceff1"/>
+    </g>
+  </svg>`,
+  lluvia: `<svg viewBox="0 0 100 100">
+    <path d="M26 58a12 12 0 0 1 2-23.8A17 17 0 0 1 60 30a13 13 0 0 1 4 28H26z" fill="#eceff1"/>
+    <rect class="anim-drop"    x="34" y="64" width="6" height="16" rx="3" fill="#00b0ff"/>
+    <rect class="anim-drop d2" x="50" y="64" width="6" height="16" rx="3" fill="#00b0ff"/>
+    <rect class="anim-drop d3" x="66" y="64" width="6" height="16" rx="3" fill="#00b0ff"/>
+  </svg>`,
+  tormenta: `<svg viewBox="0 0 100 100">
+    <path d="M26 54a12 12 0 0 1 2-23.8A17 17 0 0 1 60 26a13 13 0 0 1 4 28H26z" fill="#90a4ae"/>
+    <polygon class="anim-flash" points="52,56 38,78 50,78 44,96 66,70 54,70 62,56" fill="#ffd600"/>
+  </svg>`,
+  nieve: `<svg viewBox="0 0 100 100">
+    <path d="M26 56a12 12 0 0 1 2-23.8A17 17 0 0 1 60 28a13 13 0 0 1 4 28H26z" fill="#eceff1"/>
+    <circle class="anim-drop"    cx="38" cy="72" r="5" fill="#e1f5fe"/>
+    <circle class="anim-drop d2" cx="54" cy="72" r="5" fill="#e1f5fe"/>
+    <circle class="anim-drop d3" cx="70" cy="72" r="5" fill="#e1f5fe"/>
+  </svg>`,
+  niebla: `<svg viewBox="0 0 100 100">
+    <g class="anim-bob">
+      <rect x="16" y="34" width="68" height="9" rx="4.5" fill="#b0bec5"/>
+      <rect x="24" y="50" width="60" height="9" rx="4.5" fill="#cfd8dc"/>
+      <rect x="16" y="66" width="68" height="9" rx="4.5" fill="#90a4ae"/>
+    </g>
+  </svg>`,
+};
+function iconoClima(code) {
+  if (code === 0) return { svg: SVG.sol,      txt: 'DESPEJADO' };
+  if (code <= 2)  return { svg: SVG.parcial,  txt: 'PARCIAL' };
+  if (code === 3) return { svg: SVG.nublado,  txt: 'NUBLADO' };
+  if (code <= 48) return { svg: SVG.niebla,   txt: 'NIEBLA' };
+  if (code <= 57) return { svg: SVG.lluvia,   txt: 'LLOVIZNA' };
+  if (code <= 67) return { svg: SVG.lluvia,   txt: 'LLUVIA' };
+  if (code <= 77) return { svg: SVG.nieve,    txt: 'NIEVE' };
+  if (code <= 82) return { svg: SVG.lluvia,   txt: 'CHUBASCOS' };
+  if (code <= 86) return { svg: SVG.nieve,    txt: 'NIEVE' };
+  return { svg: SVG.tormenta, txt: 'TORMENTA' };
+}
+
+/* ---------- Clima (Open-Meteo, sin API key) ---------- */
+async function cargarClima() {
+  try {
+    const u = 'https://api.open-meteo.com/v1/forecast'
+      + '?latitude=' + CONFIG.latitud + '&longitude=' + CONFIG.longitud
+      + '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m'
+      + '&daily=temperature_2m_max,temperature_2m_min'
+      + '&timezone=' + encodeURIComponent(CONFIG.zonaHoraria);
+    const r = await fetch(u);
+    const d = await r.json();
+    const c = d.current;
+    const ic = iconoClima(c.weather_code);
+    document.getElementById('wx-city').textContent = CONFIG.ciudad.toUpperCase();
+    document.getElementById('wx-icon').innerHTML = ic.svg;
+    document.getElementById('wx-temp').innerHTML = Math.round(c.temperature_2m) + '<sup>°C</sup>';
+    document.getElementById('wx-desc').textContent = ic.txt;
+    document.getElementById('wx-max').textContent = Math.round(d.daily.temperature_2m_max[0]) + '°';
+    document.getElementById('wx-min').textContent = Math.round(d.daily.temperature_2m_min[0]) + '°';
+    document.getElementById('wx-hum').textContent = Math.round(c.relative_humidity_2m) + '%';
+    document.getElementById('wx-wind').textContent = Math.round(c.wind_speed_10m) + ' km/h';
+  } catch (e) {
+    document.getElementById('wx-desc').textContent = 'SIN CONEXIÓN';
+  }
+}
+
+/* ---------- Indicadores (mindicador.cl) ---------- */
+const fmtCLP = v => '$ ' + v.toLocaleString('es-CL', { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+function pintarDelta(el, hoy, ayer) {
+  if (!ayer) { el.textContent = '—'; el.className = 'delta flat'; return; }
+  const dif = hoy - ayer;
+  const pct = (dif / ayer * 100).toFixed(2).replace('.', ',');
+  if (dif > 0)      { el.textContent = '▲ +' + pct + '%'; el.className = 'delta up'; }
+  else if (dif < 0) { el.textContent = '▼ ' + pct + '%';  el.className = 'delta down'; }
+  else              { el.textContent = '= 0,00%';         el.className = 'delta flat'; }
+}
+async function cargarIndicadores() {
+  for (const ind of ['dolar', 'uf', 'utm']) {
+    try {
+      const r = await fetch('https://mindicador.cl/api/' + ind);
+      const d = await r.json();
+      const serie = d.serie || [];
+      if (!serie.length) continue;
+      document.getElementById('val-' + ind).textContent = fmtCLP(serie[0].valor);
+      pintarDelta(document.getElementById('dlt-' + ind), serie[0].valor, serie[1] && serie[1].valor);
+    } catch (e) { /* mantiene el último valor mostrado */ }
+  }
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: CONFIG.zonaHoraria }));
+  const p = n => String(n).padStart(2, '0');
+  document.getElementById('ind-updated').textContent =
+    'Fuente: mindicador.cl · Actualizado ' + p(now.getHours()) + ':' + p(now.getMinutes());
+}
+
+/* ---------- Noticias RSS ---------- */
+let noticias = [];
+let idxNoticia = 0;
+
+function parsearRSS(xmlText, nombreFuente) {
+  const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
+  const items = [...doc.querySelectorAll('item')].slice(0, CONFIG.maxNoticias);
+  return items.map(it => ({
+    fuente: nombreFuente,
+    titulo: (it.querySelector('title')?.textContent || '').replace(/<[^>]*>/g, '').trim(),
+  })).filter(n => n.titulo.length > 15);
+}
+
+async function cargarNoticias() {
+  const nuevas = [];
+  for (const feed of CONFIG.feeds) {
+    try {
+      const r = await fetch(CONFIG.proxyRSS(feed.url));
+      if (!r.ok) continue;
+      nuevas.push(...parsearRSS(await r.text(), feed.nombre));
+    } catch (e) { /* siguiente feed */ }
+  }
+  if (nuevas.length) {
+    // intercala las fuentes para variedad (1 de cada una, en ronda)
+    const porFuente = {};
+    nuevas.forEach(n => (porFuente[n.fuente] = porFuente[n.fuente] || []).push(n));
+    const listas = Object.values(porFuente);
+    const mezcla = [];
+    for (let i = 0; mezcla.length < nuevas.length; i++)
+      listas.forEach(l => { if (l[i]) mezcla.push(l[i]); });
+    noticias = mezcla.slice(0, CONFIG.maxNoticias * CONFIG.feeds.length);
+    idxNoticia = 0;
+    armarTicker();
+  } else if (!noticias.length) {
+    noticias = [{ fuente: 'INFO', titulo: 'Sin conexión a noticias. Reintentando…' }];
+    armarTicker();
+  }
+}
+
+function mostrarNoticia() {
+  if (!noticias.length) return;
+  const n = noticias[idxNoticia % noticias.length];
+  const t = document.getElementById('news-title');
+  document.getElementById('news-source').textContent = n.fuente;
+  t.classList.remove('show'); void t.offsetWidth; // reinicia animación
+  t.textContent = n.titulo;
+  t.classList.add('show');
+  document.getElementById('news-count').textContent =
+    (idxNoticia % noticias.length + 1) + ' / ' + noticias.length;
+  // barra de progreso
+  const bar = document.getElementById('news-bar');
+  bar.style.transition = 'none'; bar.style.width = '0%';
+  void bar.offsetWidth;
+  bar.style.transition = 'width ' + CONFIG.segundosPorNoticia + 's linear';
+  bar.style.width = '100%';
+  idxNoticia++;
+}
+
+/* ---------- Cinta inferior ---------- */
+function armarTicker() {
+  const partes = [];
+  const vd = document.getElementById('val-dolar').textContent;
+  const vu = document.getElementById('val-uf').textContent;
+  const vt = document.getElementById('val-utm').textContent;
+  partes.push('<b>DÓLAR</b> ' + vd, '<b>UF</b> ' + vu, '<b>UTM</b> ' + vt);
+  noticias.slice(0, 6).forEach(n => partes.push('◆ ' + n.titulo));
+  const html = partes.map(p => '<span>' + p + '</span>').join('');
+  // contenido duplicado para bucle continuo
+  document.getElementById('ticker-inner').innerHTML = html + html;
+}
+
+/* ---------- Arranque y ciclos de actualización ---------- */
+cargarClima();
+cargarIndicadores().then(armarTicker);
+cargarNoticias().then(mostrarNoticia);
+
+setInterval(mostrarNoticia, CONFIG.segundosPorNoticia * 1000);
+setInterval(cargarClima, CONFIG.refrescoClimaMin * 60 * 1000);
+setInterval(() => cargarIndicadores().then(armarTicker), CONFIG.refrescoIndicadoresMin * 60 * 1000);
+setInterval(cargarNoticias, CONFIG.refrescoNoticiasMin * 60 * 1000);
+setTimeout(() => location.reload(), CONFIG.recargaPaginaHoras * 60 * 60 * 1000);
+</script>
+</body>
+</html>
