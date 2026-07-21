@@ -24,8 +24,10 @@
     "cinta": true
   },
   "videos": {
-    "lista": [],
-    "cadaMin": 10,
+    "lista": [
+      "videos/pendon-corporativo-1.8.mp4"
+    ],
+    "cadaMin": 1,
     "maxSeg": 75,
     "ajuste": "cubrir"
   }
