@@ -395,8 +395,13 @@ const CONFIG = {
     { nombre: 'Emol',        url: 'https://www.emol.com/sitemap/noticias/index.xml' },
     { nombre: 'La Tercera',  url: 'https://www.latercera.com/arc/outboundfeeds/rss/?outputType=xml' },
   ],
-  // Proxy CORS para leer RSS desde el navegador del player
-  proxyRSS: u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+  // Proxies CORS para leer RSS desde el navegador del player.
+  // Se intentan en orden hasta que uno responda (si uno se cae, siguen los otros).
+  proxiesRSS: [
+    u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+    u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
+    u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+  ],
   maxNoticias: 10,
   segundosPorNoticia: 12,
   refrescoClimaMin: 15,
@@ -575,22 +580,38 @@ let idxNoticia = 0;
 
 function parsearRSS(xmlText, nombreFuente) {
   const doc = new DOMParser().parseFromString(xmlText, 'text/xml');
-  const items = [...doc.querySelectorAll('item')].slice(0, CONFIG.maxNoticias);
-  return items.map(it => ({
+  // soporta RSS (<item>) y Atom (<entry>)
+  let items = [...doc.querySelectorAll('item')];
+  if (!items.length) items = [...doc.querySelectorAll('entry')];
+  return items.slice(0, CONFIG.maxNoticias).map(it => ({
     fuente: nombreFuente,
     titulo: (it.querySelector('title')?.textContent || '').replace(/<[^>]*>/g, '').trim(),
   })).filter(n => n.titulo.length > 15);
 }
 
-async function cargarNoticias() {
-  const nuevas = [];
-  for (const feed of CONFIG.feeds) {
+function fetchConTimeout(url, ms) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  return fetch(url, { signal: ctl.signal }).finally(() => clearTimeout(t));
+}
+
+async function leerFeed(feed) {
+  // intenta cada proxy en orden; con tiempo límite para no quedar colgado
+  for (const proxy of CONFIG.proxiesRSS) {
     try {
-      const r = await fetch(CONFIG.proxyRSS(feed.url));
+      const r = await fetchConTimeout(proxy(feed.url), 12000);
       if (!r.ok) continue;
-      nuevas.push(...parsearRSS(await r.text(), feed.nombre));
-    } catch (e) { /* siguiente feed */ }
+      const items = parsearRSS(await r.text(), feed.nombre);
+      if (items.length) return items;
+    } catch (e) { /* siguiente proxy */ }
   }
+  return [];
+}
+
+async function cargarNoticias() {
+  // todas las fuentes en paralelo
+  const resultados = await Promise.all(CONFIG.feeds.map(leerFeed));
+  const nuevas = resultados.flat();
   if (nuevas.length) {
     // intercala las fuentes para variedad (1 de cada una, en ronda)
     const porFuente = {};
