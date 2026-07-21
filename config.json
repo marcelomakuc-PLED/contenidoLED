@@ -6,10 +6,6 @@
     {
       "nombre": "Cooperativa",
       "url": "https://www.cooperativa.cl/noticias/site/tax/port/all/rss_3___1.xml"
-    },
-    {
-      "nombre": "T13",
-      "url": "https://www.t13.cl/rss"
     }
   ],
   "maxNoticias": 20,
