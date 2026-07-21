@@ -26,5 +26,7 @@
     "cadaMin": 1,
     "maxSeg": 75,
     "ajuste": "cubrir"
-  }
+  },
+  "tamanoTitularPx": 18,
+  "cintaSegundos": 60
 }
