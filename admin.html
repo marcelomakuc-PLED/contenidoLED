@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de Administración — Pendón PLED</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #0a0a14;
+  color: #eceff1;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  padding-bottom: 80px;
+}
+header {
+  background: linear-gradient(120deg, #1a0533, #3d0a6e);
+  border-bottom: 3px solid #00e5ff;
+  padding: 18px 24px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+header h1 { font-size: 22px; letter-spacing: 1px; }
+header .sub { color: #b39ddb; font-size: 14px; }
+header a.ver {
+  margin-left: auto;
+  background: #00e5ff; color: #000; font-weight: 700;
+  padding: 8px 16px; border-radius: 8px; text-decoration: none; font-size: 14px;
+}
+main { max-width: 760px; margin: 0 auto; padding: 20px 16px; }
+.card {
+  background: #12121f;
+  border: 1px solid #2a2a45;
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+.card h2 {
+  font-size: 16px; text-transform: uppercase; letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+.card p.desc { color: #90a4ae; font-size: 13px; margin-bottom: 12px; }
+.card.noticias h2 { color: #ff5252; }
+.card.videos h2 { color: #ffd600; }
+.card.clima h2 { color: #00e5ff; }
+.card.pantalla h2 { color: #69f0ae; }
+.card.github h2 { color: #ea80fc; }
+
+label { display: block; font-size: 13px; color: #b0bec5; margin: 10px 0 4px; }
+input[type=text], input[type=password], input[type=number], select {
+  width: 100%;
+  background: #0a0a14; color: #fff;
+  border: 1px solid #37474f; border-radius: 8px;
+  padding: 9px 12px; font-size: 14px;
+}
+input:focus, select:focus { outline: none; border-color: #00e5ff; }
+.fila { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+.fila input { flex: 1; }
+.fila .nombre { flex: 0 0 150px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+button {
+  border: 0; border-radius: 8px; cursor: pointer;
+  font-size: 14px; font-weight: 700; padding: 9px 16px;
+}
+button.quitar { background: #4a1010; color: #ff8a80; padding: 9px 12px; }
+button.quitar:hover { background: #7f1d1d; }
+button.agregar { background: #10331f; color: #69f0ae; margin-top: 6px; }
+button.agregar:hover { background: #1b5e20; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 6px 0; }
+.check input { width: 18px; height: 18px; accent-color: #69f0ae; }
+
+#barra {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: #12121f; border-top: 2px solid #2a2a45;
+  padding: 12px 16px;
+  display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
+}
+#btn-guardar { background: linear-gradient(120deg, #00c853, #00e676); color: #000; font-size: 15px; padding: 12px 26px; }
+#btn-recargar { background: #1a237e; color: #90caf9; }
+#btn-descargar { background: #333; color: #eee; }
+#estado { font-size: 13px; min-width: 200px; text-align: center; }
+#estado.ok { color: #69f0ae; }
+#estado.error { color: #ff8a80; }
+#estado.info { color: #ffd600; }
+.ayuda { font-size: 12px; color: #78909c; line-height: 1.5; margin-top: 8px; }
+.ayuda a { color: #00e5ff; }
+code { background: #0a0a14; padding: 1px 6px; border-radius: 4px; font-size: 12px; color: #ffd600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚙️ Panel de Administración</h1>
+  <span class="sub">Pendón LED · PLED Soluciones Tecnológicas</span>
+  <a class="ver" href="index.html" target="_blank">Ver pantalla ➜</a>
+</header>
+
+<main>
+  <!-- NOTICIAS -->
+  <div class="card noticias">
+    <h2>📰 Fuentes de noticias (RSS)</h2>
+    <p class="desc">Enlaces desde donde el pendón busca los titulares. Puedes agregar, cambiar o quitar fuentes.</p>
+    <div id="lista-feeds"></div>
+    <button class="agregar" onclick="agregarFeed()">＋ Agregar fuente</button>
+    <label>Titulares máximos por fuente</label>
+    <input type="number" id="maxNoticias" min="1" max="30">
+  </div>
+
+  <!-- VIDEOS -->
+  <div class="card videos">
+    <h2>🎬 Videos</h2>
+    <p class="desc">Videos que se muestran a pantalla completa intercalados con la información.
+    Acepta enlaces directos a archivos .mp4/.webm o enlaces de YouTube.</p>
+    <div id="lista-videos"></div>
+    <button class="agregar" onclick="agregarVideo()">＋ Agregar video</button>
+    <div class="grid3">
+      <div><label>Mostrar un video cada (minutos)</label><input type="number" id="vid-cadaMin" min="1"></div>
+      <div><label>Duración máxima (segundos)</label><input type="number" id="vid-maxSeg" min="5"></div>
+      <div><label>Ajuste en pantalla</label>
+        <select id="vid-ajuste">
+          <option value="cubrir">Cubrir (recorta bordes)</option>
+          <option value="completo">Completo (franjas negras)</option>
+        </select>
+      </div>
+    </div>
+    <p class="ayuda">Consejo: para un pendón 1:3 lo ideal son videos verticales. Los videos siempre se reproducen sin sonido.</p>
+  </div>
+
+  <!-- CLIMA -->
+  <div class="card clima">
+    <h2>🌤 Clima</h2>
+    <p class="desc">Ciudad mostrada y coordenadas usadas para el pronóstico.</p>
+    <div class="grid3">
+      <div><label>Ciudad (texto mostrado)</label><input type="text" id="ciudad"></div>
+      <div><label>Latitud</label><input type="number" id="latitud" step="0.01"></div>
+      <div><label>Longitud</label><input type="number" id="longitud" step="0.01"></div>
+    </div>
+  </div>
+
+  <!-- PANTALLA -->
+  <div class="card pantalla">
+    <h2>🖥 Diseño de la pantalla</h2>
+    <p class="desc">Activa o desactiva secciones y ajusta la velocidad.</p>
+    <div class="grid2">
+      <div>
+        <div class="check"><input type="checkbox" id="sec-clima"><label for="sec-clima" style="margin:0">El Tiempo</label></div>
+        <div class="check"><input type="checkbox" id="sec-indicadores"><label for="sec-indicadores" style="margin:0">Indicadores (dólar, UF, UTM)</label></div>
+        <div class="check"><input type="checkbox" id="sec-noticias"><label for="sec-noticias" style="margin:0">Noticias</label></div>
+        <div class="check"><input type="checkbox" id="sec-cinta"><label for="sec-cinta" style="margin:0">Cinta inferior</label></div>
+      </div>
+      <div>
+        <label>Segundos por noticia</label><input type="number" id="segundosPorNoticia" min="4">
+        <label>Refresco noticias (min)</label><input type="number" id="refrescoNoticiasMin" min="2">
+      </div>
+    </div>
+  </div>
+
+  <!-- GITHUB -->
+  <div class="card github">
+    <h2>🔑 Publicación (GitHub)</h2>
+    <p class="desc">El panel guarda la configuración en el repositorio; Vercel publica el cambio
+    automáticamente y el pendón lo aplica en un máximo de 5 minutos.</p>
+    <div class="grid2">
+      <div><label>Repositorio (usuario/repo)</label><input type="text" id="gh-repo" value="marcelomakuc-PLED/contenidoLED"></div>
+      <div><label>Token de acceso (se guarda solo en este navegador)</label><input type="password" id="gh-token" placeholder="github_pat_…"></div>
+    </div>
+    <p class="ayuda">
+      Cómo crear el token (una sola vez): GitHub → tu foto → <b>Settings → Developer settings →
+      Personal access tokens → Fine-grained tokens → Generate new token</b>.
+      Dale acceso solo al repositorio <code>contenidoLED</code> con permiso
+      <b>Contents: Read and write</b>, y pégalo aquí.
+    </p>
+  </div>
+</main>
+
+<div id="barra">
+  <button id="btn-recargar" onclick="cargarActual()">↻ Cargar configuración actual</button>
+  <button id="btn-guardar" onclick="guardar()">💾 Guardar y publicar</button>
+  <button id="btn-descargar" onclick="descargar()">⬇ Descargar config.json</button>
+  <span id="estado"></span>
+</div>
+
+<script>
+/* ---------- estado ---------- */
+const $ = id => document.getElementById(id);
+const estado = (msg, tipo) => { const e = $('estado'); e.textContent = msg; e.className = tipo || ''; };
+
+/* token y repo persistidos solo en este navegador */
+$('gh-token').value = localStorage.getItem('pled_admin_token') || '';
+$('gh-repo').value  = localStorage.getItem('pled_admin_repo') || 'marcelomakuc-PLED/contenidoLED';
+$('gh-token').addEventListener('change', () => localStorage.setItem('pled_admin_token', $('gh-token').value.trim()));
+$('gh-repo').addEventListener('change', () => localStorage.setItem('pled_admin_repo', $('gh-repo').value.trim()));
+
+/* ---------- filas dinámicas ---------- */
+function filaFeed(f) {
+  const div = document.createElement('div');
+  div.className = 'fila';
+  div.innerHTML = '<input type="text" class="nombre" placeholder="Nombre" value="">' +
+                  '<input type="text" class="url" placeholder="https://…/rss.xml" value="">' +
+                  '<button class="quitar" onclick="this.parentNode.remove()">✕</button>';
+  div.querySelector('.nombre').value = (f && f.nombre) || '';
+  div.querySelector('.url').value = (f && f.url) || '';
+  $('lista-feeds').appendChild(div);
+}
+function agregarFeed() { filaFeed(); }
+
+function filaVideo(url) {
+  const div = document.createElement('div');
+  div.className = 'fila';
+  div.innerHTML = '<input type="text" class="url" placeholder="https://…/video.mp4 o enlace de YouTube" value="">' +
+                  '<button class="quitar" onclick="this.parentNode.remove()">✕</button>';
+  div.querySelector('.url').value = url || '';
+  $('lista-videos').appendChild(div);
+}
+function agregarVideo() { filaVideo(); }
+
+/* ---------- config <-> formulario ---------- */
+function aForm(c) {
+  $('lista-feeds').innerHTML = '';
+  (c.feeds || []).forEach(filaFeed);
+  $('maxNoticias').value = c.maxNoticias ?? 10;
+  $('lista-videos').innerHTML = '';
+  const v = c.videos || {};
+  (v.lista || []).forEach(x => filaVideo(typeof x === 'string' ? x : x.url));
+  $('vid-cadaMin').value = v.cadaMin ?? 10;
+  $('vid-maxSeg').value = v.maxSeg ?? 75;
+  $('vid-ajuste').value = v.ajuste || 'cubrir';
+  $('ciudad').value = c.ciudad || 'Santiago';
+  $('latitud').value = c.latitud ?? -33.45;
+  $('longitud').value = c.longitud ?? -70.66;
+  const s = c.secciones || {};
+  $('sec-clima').checked = s.clima !== false;
+  $('sec-indicadores').checked = s.indicadores !== false;
+  $('sec-noticias').checked = s.noticias !== false;
+  $('sec-cinta').checked = s.cinta !== false;
+  $('segundosPorNoticia').value = c.segundosPorNoticia ?? 12;
+  $('refrescoNoticiasMin').value = c.refrescoNoticiasMin ?? 10;
+  base = c; // conserva claves que el panel no edita
+}
+function deForm() {
+  const c = Object.assign({}, base);
+  c.feeds = [...$('lista-feeds').querySelectorAll('.fila')].map(f => ({
+    nombre: f.querySelector('.nombre').value.trim() || 'RSS',
+    url: f.querySelector('.url').value.trim(),
+  })).filter(f => f.url);
+  c.maxNoticias = +$('maxNoticias').value || 10;
+  c.videos = {
+    lista: [...$('lista-videos').querySelectorAll('.url')].map(i => i.value.trim()).filter(Boolean),
+    cadaMin: +$('vid-cadaMin').value || 10,
+    maxSeg: +$('vid-maxSeg').value || 75,
+    ajuste: $('vid-ajuste').value,
+  };
+  c.ciudad = $('ciudad').value.trim() || 'Santiago';
+  c.latitud = +$('latitud').value;
+  c.longitud = +$('longitud').value;
+  c.secciones = {
+    clima: $('sec-clima').checked,
+    indicadores: $('sec-indicadores').checked,
+    noticias: $('sec-noticias').checked,
+    cinta: $('sec-cinta').checked,
+  };
+  c.segundosPorNoticia = +$('segundosPorNoticia').value || 12;
+  c.refrescoNoticiasMin = +$('refrescoNoticiasMin').value || 10;
+  return c;
+}
+let base = {};
+
+/* ---------- cargar / guardar ---------- */
+async function cargarActual() {
+  estado('Cargando…', 'info');
+  try {
+    const r = await fetch('config.json?v=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw 0;
+    aForm(await r.json());
+    estado('Configuración cargada ✓', 'ok');
+  } catch (e) {
+    aForm({});
+    estado('No se pudo leer config.json — se muestran valores por defecto', 'error');
+  }
+}
+
+async function guardar() {
+  const token = $('gh-token').value.trim();
+  const repo = $('gh-repo').value.trim();
+  if (!token) { estado('Falta el token de GitHub (sección Publicación)', 'error'); return; }
+  estado('Publicando…', 'info');
+  const contenido = JSON.stringify(deForm(), null, 2) + '\n';
+  const api = 'https://api.github.com/repos/' + repo + '/contents/config.json';
+  const cab = {
+    'Authorization': 'Bearer ' + token,
+    'Accept': 'application/vnd.github+json',
+    'Content-Type': 'application/json',
+  };
+  try {
+    // sha actual del archivo (necesario para actualizarlo)
+    let sha;
+    const g = await fetch(api, { headers: cab });
+    if (g.ok) sha = (await g.json()).sha;
+    const body = {
+      message: 'Actualiza configuración desde el panel de administración',
+      content: btoa(unescape(encodeURIComponent(contenido))),
+    };
+    if (sha) body.sha = sha;
+    const p = await fetch(api, { method: 'PUT', headers: cab, body: JSON.stringify(body) });
+    if (!p.ok) {
+      const err = await p.json().catch(() => ({}));
+      throw new Error(err.message || ('HTTP ' + p.status));
+    }
+    estado('✓ Publicado. Vercel desplegará en ~1 min y el pendón lo aplicará en máximo 5 min.', 'ok');
+  } catch (e) {
+    estado('Error al publicar: ' + e.message, 'error');
+  }
+}
+
+function descargar() {
+  const blob = new Blob([JSON.stringify(deForm(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'config.json';
+  a.click();
+}
+
+cargarActual();
+</script>
+</body>
+</html>
