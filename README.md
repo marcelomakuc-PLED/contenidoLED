@@ -55,6 +55,25 @@ logotipo "PLED" de respaldo dibujado en texto.
 3. La página se **recarga sola cada 6 horas** para evitar fugas de memoria
    en players que quedan encendidos 24/7.
 
+## Panel de administración
+
+En `admin.html` (por ejemplo `https://tu-sitio.vercel.app/admin.html`) hay un
+panel para administrar el pendón sin tocar código:
+
+- **Noticias:** agregar, cambiar o quitar fuentes RSS.
+- **Videos:** lista de videos (.mp4/.webm o YouTube) que se muestran a
+  pantalla completa intercalados con la información, con frecuencia,
+  duración máxima y modo de ajuste configurables.
+- **Clima:** ciudad y coordenadas.
+- **Diseño:** activar/desactivar secciones (clima, indicadores, noticias,
+  cinta) y velocidad de rotación.
+
+El panel guarda los cambios en `config.json` del repositorio usando un
+token de GitHub *fine-grained* (con permiso Contents: Read and write solo
+sobre este repo; el propio panel explica cómo crearlo). Al guardar, Vercel
+publica automáticamente y el pendón aplica la nueva configuración en un
+máximo de 5 minutos, sin intervención manual.
+
 ## Personalización (bloque `CONFIG` al inicio del `<script>`)
 
 ```js

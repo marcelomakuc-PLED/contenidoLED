@@ -259,6 +259,17 @@ html, body {
   color: #ff8a80; padding-bottom: 3px;
 }
 
+/* ---------- VIDEOS (pantalla completa sobre el contenido) ---------- */
+#video-overlay {
+  position: absolute; inset: 0; z-index: 10;
+  background: #000; display: none;
+}
+#video-overlay video, #video-overlay iframe {
+  width: 100%; height: 100%; border: 0; display: block;
+}
+#video-overlay video { object-fit: cover; }
+#video-overlay.ajuste-completo video { object-fit: contain; }
+
 /* ---------- 5. CINTA INFERIOR ---------- */
 #ticker {
   height: 62px;
@@ -360,6 +371,12 @@ html, body {
     <!-- 5. CINTA -->
     <div id="ticker"><div id="ticker-inner"></div></div>
 
+    <!-- VIDEOS -->
+    <div id="video-overlay">
+      <video id="video-player" muted autoplay playsinline></video>
+      <iframe id="video-iframe" allow="autoplay" style="display:none"></iframe>
+    </div>
+
   </div>
 </div>
 
@@ -386,6 +403,10 @@ const CONFIG = {
   refrescoIndicadoresMin: 30,
   refrescoNoticiasMin: 10,
   recargaPaginaHoras: 6,   // recarga completa (evita fugas de memoria en players)
+  // Secciones visibles (editable desde admin.html vía config.json)
+  secciones: { clima: true, indicadores: true, noticias: true, cinta: true },
+  // Videos intercalados a pantalla completa (editable desde admin.html)
+  videos: { lista: [], cadaMin: 10, maxSeg: 75, ajuste: 'cubrir' },
 };
 
 /* ---------- Escalado del escenario 384×1152 (1:3) ---------- */
@@ -620,25 +641,98 @@ function armarTicker() {
   document.getElementById('ticker-inner').innerHTML = html + html;
 }
 
+/* ---------- Configuración remota (config.json, editable desde admin.html) ---------- */
+let configAplicada = '';
+async function cargarConfigRemota() {
+  try {
+    const r = await fetch('config.json?v=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const c = await r.json();
+    const txt = JSON.stringify(c);
+    // si la configuración cambió después del arranque, reinicia con la nueva
+    if (configAplicada && txt !== configAplicada) { location.reload(); return; }
+    for (const k in c) {
+      if (c[k] && typeof c[k] === 'object' && !Array.isArray(c[k])
+          && CONFIG[k] && typeof CONFIG[k] === 'object' && !Array.isArray(CONFIG[k]))
+        Object.assign(CONFIG[k], c[k]);
+      else CONFIG[k] = c[k];
+    }
+    configAplicada = txt;
+  } catch (e) { /* sin config.json se usan los valores por defecto */ }
+}
+
+function aplicarSecciones() {
+  const s = CONFIG.secciones || {};
+  const mapa = { clima: 'weather', indicadores: 'indicators', noticias: 'news', cinta: 'ticker' };
+  for (const k in mapa)
+    if (s[k] === false) document.getElementById(mapa[k]).style.display = 'none';
+  // si no hay noticias, los indicadores ocupan el espacio libre
+  if (s.noticias === false) {
+    const ind = document.getElementById('indicators');
+    ind.style.height = 'auto'; ind.style.flex = '1';
+  }
+}
+
+/* ---------- Videos a pantalla completa ---------- */
+let idxVideo = 0, videoTimer = null;
+function reproducirVideo() {
+  const lista = (CONFIG.videos && CONFIG.videos.lista) || [];
+  if (!lista.length) return;
+  const item = lista[idxVideo++ % lista.length];
+  const url = typeof item === 'string' ? item : item.url;
+  const ov  = document.getElementById('video-overlay');
+  const vid = document.getElementById('video-player');
+  const ifr = document.getElementById('video-iframe');
+  ov.classList.toggle('ajuste-completo', CONFIG.videos.ajuste === 'completo');
+  const fin = () => {
+    ov.style.display = 'none';
+    vid.pause(); vid.removeAttribute('src'); vid.load();
+    ifr.src = 'about:blank';
+    clearTimeout(videoTimer);
+  };
+  clearTimeout(videoTimer);
+  ov.style.display = 'block';
+  const idYT = (url.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/) || [])[1];
+  if (idYT) {
+    vid.style.display = 'none'; ifr.style.display = 'block';
+    ifr.src = 'https://www.youtube.com/embed/' + idYT
+      + '?autoplay=1&mute=1&controls=0&playsinline=1&rel=0';
+  } else {
+    ifr.style.display = 'none'; vid.style.display = 'block';
+    vid.onended = fin; vid.onerror = fin;
+    vid.src = url;
+    vid.play().catch(fin);
+  }
+  videoTimer = setTimeout(fin, Math.max(5, CONFIG.videos.maxSeg || 75) * 1000);
+}
+
 /* ---------- Arranque y ciclos de actualización ---------- */
-// 1) pinta al instante lo último conocido (memoria local)…
-const cacheClima = leer('clima');
-if (cacheClima) pintarClima(cacheClima);
-const cacheInd = leer('ind');
-if (cacheInd) pintarIndicadores(cacheInd);
-const cacheNews = leer('news');
-if (cacheNews && cacheNews.length) { noticias = cacheNews; armarTicker(); mostrarNoticia(); }
+(async function init() {
+  await cargarConfigRemota();
+  aplicarSecciones();
 
-// 2) …y actualiza todo por detrás con datos frescos
-cargarClima();
-cargarIndicadores().then(armarTicker);
-cargarNoticias().then(() => { if (idxNoticia === 0) mostrarNoticia(); });
+  // 1) pinta al instante lo último conocido (memoria local)…
+  const cacheClima = leer('clima');
+  if (cacheClima) pintarClima(cacheClima);
+  const cacheInd = leer('ind');
+  if (cacheInd) pintarIndicadores(cacheInd);
+  const cacheNews = leer('news');
+  if (cacheNews && cacheNews.length) { noticias = cacheNews; armarTicker(); mostrarNoticia(); }
 
-setInterval(mostrarNoticia, CONFIG.segundosPorNoticia * 1000);
-setInterval(cargarClima, CONFIG.refrescoClimaMin * 60 * 1000);
-setInterval(() => cargarIndicadores().then(armarTicker), CONFIG.refrescoIndicadoresMin * 60 * 1000);
-setInterval(cargarNoticias, CONFIG.refrescoNoticiasMin * 60 * 1000);
-setTimeout(() => location.reload(), CONFIG.recargaPaginaHoras * 60 * 60 * 1000);
+  // 2) …y actualiza todo por detrás con datos frescos
+  cargarClima();
+  cargarIndicadores().then(armarTicker);
+  cargarNoticias().then(() => { if (idxNoticia === 0) mostrarNoticia(); });
+
+  setInterval(mostrarNoticia, CONFIG.segundosPorNoticia * 1000);
+  setInterval(cargarClima, CONFIG.refrescoClimaMin * 60 * 1000);
+  setInterval(() => cargarIndicadores().then(armarTicker), CONFIG.refrescoIndicadoresMin * 60 * 1000);
+  setInterval(cargarNoticias, CONFIG.refrescoNoticiasMin * 60 * 1000);
+  setInterval(cargarConfigRemota, 5 * 60 * 1000);
+  if (((CONFIG.videos || {}).lista || []).length)
+    setInterval(reproducirVideo, Math.max(1, CONFIG.videos.cadaMin || 10) * 60 * 1000);
+  setTimeout(() => location.reload(), CONFIG.recargaPaginaHoras * 60 * 60 * 1000);
+})();
 </script>
 </body>
 </html>
