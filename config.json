@@ -3,15 +3,26 @@
   "latitud": -33.45,
   "longitud": -70.66,
   "feeds": [
-    { "nombre": "Cooperativa", "url": "https://www.cooperativa.cl/noticias/site/tax/port/all/rss_3___1.xml" },
-    { "nombre": "Emol", "url": "https://www.emol.com/sitemap/noticias/index.xml" },
-    { "nombre": "La Tercera", "url": "https://www.latercera.com/arc/outboundfeeds/rss/?outputType=xml" }
+    {
+      "nombre": "Cooperativa",
+      "url": "https://www.cooperativa.cl/noticias/site/tax/port/all/rss_3___1.xml"
+    }
   ],
-  "maxNoticias": 10,
+  "maxNoticias": 20,
   "segundosPorNoticia": 12,
   "refrescoClimaMin": 15,
   "refrescoIndicadoresMin": 30,
   "refrescoNoticiasMin": 10,
-  "secciones": { "clima": true, "indicadores": true, "noticias": true, "cinta": true },
-  "videos": { "lista": [], "cadaMin": 10, "maxSeg": 75, "ajuste": "cubrir" }
+  "secciones": {
+    "clima": true,
+    "indicadores": true,
+    "noticias": true,
+    "cinta": true
+  },
+  "videos": {
+    "lista": [],
+    "cadaMin": 10,
+    "maxSeg": 75,
+    "ajuste": "cubrir"
+  }
 }
