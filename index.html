@@ -710,6 +710,38 @@ function aplicarSecciones() {
 
 /* ---------- Videos a pantalla completa ---------- */
 let idxVideo = 0, videoTimer = null;
+
+// Pre-descarga los videos al caché local del player: se bajan una sola vez
+// y las reproducciones siguientes salen del disco (sin cortes por la red).
+const videosBlob = {}; // url -> blob URL listo para reproducir
+function listaVideos() {
+  return ((CONFIG.videos || {}).lista || [])
+    .map(v => typeof v === 'string' ? v : v.url)
+    .filter(u => !/youtube\.com|youtu\.be/.test(u)); // YouTube no se puede precargar
+}
+async function precargarVideos() {
+  const lista = listaVideos();
+  if (!lista.length || !('caches' in window)) return;
+  try {
+    const cache = await caches.open('pled-videos');
+    // elimina del caché los videos que ya no están en la lista
+    const vigentes = lista.map(u => new URL(u, location.href).href);
+    for (const req of await cache.keys())
+      if (!vigentes.includes(req.url)) await cache.delete(req);
+    for (const u of lista) {
+      try {
+        let resp = await cache.match(u);
+        if (!resp) {
+          const r = await fetch(u);
+          if (!r.ok) continue;
+          await cache.put(u, r.clone());
+          resp = r;
+        }
+        if (!videosBlob[u]) videosBlob[u] = URL.createObjectURL(await resp.blob());
+      } catch (e) { /* siguiente video */ }
+    }
+  } catch (e) { /* sin caché disponible se reproduce por red igual */ }
+}
 function reproducirVideo() {
   const lista = (CONFIG.videos && CONFIG.videos.lista) || [];
   if (!lista.length) return;
@@ -735,7 +767,7 @@ function reproducirVideo() {
   } else {
     ifr.style.display = 'none'; vid.style.display = 'block';
     vid.onended = fin; vid.onerror = fin;
-    vid.src = url;
+    vid.src = videosBlob[url] || url; // desde caché local si ya se descargó
     vid.play().catch(fin);
   }
   videoTimer = setTimeout(fin, Math.max(5, CONFIG.videos.maxSeg || 75) * 1000);
@@ -746,6 +778,7 @@ function reproducirVideo() {
   await cargarConfigRemota();
   aplicarSecciones();
   aplicarEstilos();
+  precargarVideos(); // en segundo plano, antes de la primera reproducción
 
   // 1) pinta al instante lo último conocido (memoria local)…
   const cacheClima = leer('clima');
