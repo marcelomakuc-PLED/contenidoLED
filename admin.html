@@ -112,7 +112,10 @@ code { background: #0a0a14; padding: 1px 6px; border-radius: 4px; font-size: 12p
     <p class="desc">Videos que se muestran a pantalla completa intercalados con la información.
     Acepta enlaces directos a archivos .mp4/.webm o enlaces de YouTube.</p>
     <div id="lista-videos"></div>
-    <button class="agregar" onclick="agregarVideo()">＋ Agregar video</button>
+    <button class="agregar" onclick="$('archivo-video').click()">⬆ Subir video desde mi computador</button>
+    <button class="agregar" onclick="agregarVideo()">＋ Agregar por enlace</button>
+    <input type="file" id="archivo-video" accept="video/mp4,video/webm,.mp4,.webm" style="display:none"
+           onchange="if(this.files[0]) subirVideo(this.files[0]); this.value=''">
     <div class="grid3">
       <div><label>Mostrar un video cada (minutos)</label><input type="number" id="vid-cadaMin" min="1"></div>
       <div><label>Duración máxima (segundos)</label><input type="number" id="vid-maxSeg" min="5"></div>
@@ -123,7 +126,11 @@ code { background: #0a0a14; padding: 1px 6px; border-radius: 4px; font-size: 12p
         </select>
       </div>
     </div>
-    <p class="ayuda">Consejo: para un pendón 1:3 lo ideal son videos verticales. Los videos siempre se reproducen sin sonido.</p>
+    <p class="ayuda">Consejo: para un pendón 1:3 lo ideal son videos verticales. Los videos siempre se
+    reproducen sin sonido. Al subir un archivo (máx. 95 MB, formato .mp4 o .webm) este se guarda en la
+    carpeta <code>videos/</code> del repositorio usando tu token, y el enlace se agrega solo a la lista —
+    recuerda presionar <b>Guardar y publicar</b> después. Quitar un video de la lista deja de mostrarlo
+    (el archivo queda en el repositorio por si quieres volver a usarlo).</p>
   </div>
 
   <!-- CLIMA -->
@@ -309,6 +316,50 @@ async function guardar() {
     estado('✓ Publicado. Vercel desplegará en ~1 min y el pendón lo aplicará en máximo 5 min.', 'ok');
   } catch (e) {
     estado('Error al publicar: ' + e.message, 'error');
+  }
+}
+
+/* ---------- subida de archivos de video al repositorio ---------- */
+async function subirVideo(archivo) {
+  const token = $('gh-token').value.trim();
+  const repo = $('gh-repo').value.trim();
+  if (!token) { estado('Para subir archivos primero pega el token en "Publicación (GitHub)"', 'error'); return; }
+  if (archivo.size > 95 * 1024 * 1024) { estado('El archivo supera el máximo de 95 MB que permite GitHub', 'error'); return; }
+  const nombre = archivo.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-');
+  const ruta = 'videos/' + nombre;
+  const mb = (archivo.size / 1024 / 1024).toFixed(1);
+  estado('Subiendo ' + nombre + ' (' + mb + ' MB)… puede tardar según tu conexión', 'info');
+  try {
+    const b64 = await new Promise((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(fr.result.split(',')[1]);
+      fr.onerror = () => rej(new Error('no se pudo leer el archivo'));
+      fr.readAsDataURL(archivo);
+    });
+    const api = 'https://api.github.com/repos/' + repo + '/contents/'
+      + ruta.split('/').map(encodeURIComponent).join('/');
+    const cab = {
+      'Authorization': 'Bearer ' + token,
+      'Accept': 'application/vnd.github+json',
+      'Content-Type': 'application/json',
+    };
+    // si ya existe un archivo con el mismo nombre, se reemplaza
+    let sha;
+    try {
+      const g = await fetch(api, { headers: cab });
+      if (g.ok) sha = (await g.json()).sha;
+    } catch (e) {}
+    const body = { message: 'Sube video ' + nombre + ' desde el panel de administración', content: b64 };
+    if (sha) body.sha = sha;
+    const p = await fetch(api, { method: 'PUT', headers: cab, body: JSON.stringify(body) });
+    if (!p.ok) {
+      const err = await p.json().catch(() => ({}));
+      throw new Error(err.message || ('HTTP ' + p.status));
+    }
+    filaVideo(ruta);
+    estado('✓ Video subido y agregado a la lista. Presiona "Guardar y publicar" para activarlo.', 'ok');
+  } catch (e) {
+    estado('Error al subir el video: ' + e.message, 'error');
   }
 }
 
