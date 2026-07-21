@@ -269,6 +269,13 @@ html, body {
 }
 #video-overlay video { object-fit: cover; }
 #video-overlay.ajuste-completo video { object-fit: contain; }
+/* oculta los controles nativos del navegador (botón gigante de play, etc.) */
+#video-overlay video::-webkit-media-controls,
+#video-overlay video::-webkit-media-controls-start-playback-button,
+#video-overlay video::-webkit-media-controls-overlay-play-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
 
 /* ---------- 5. CINTA INFERIOR ---------- */
 #ticker {
@@ -373,7 +380,8 @@ html, body {
 
     <!-- VIDEOS -->
     <div id="video-overlay">
-      <video id="video-player" muted autoplay playsinline></video>
+      <video id="video-player" muted autoplay playsinline
+             disablepictureinpicture controlslist="nodownload noplaybackrate nofullscreen"></video>
       <iframe id="video-iframe" allow="autoplay" style="display:none"></iframe>
     </div>
 
@@ -758,15 +766,18 @@ function reproducirVideo() {
     clearTimeout(videoTimer);
   };
   clearTimeout(videoTimer);
-  ov.style.display = 'block';
   const idYT = (url.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/) || [])[1];
   if (idYT) {
     vid.style.display = 'none'; ifr.style.display = 'block';
+    ov.style.display = 'block';
     ifr.src = 'https://www.youtube.com/embed/' + idYT
       + '?autoplay=1&mute=1&controls=0&playsinline=1&rel=0';
   } else {
     ifr.style.display = 'none'; vid.style.display = 'block';
     vid.onended = fin; vid.onerror = fin;
+    // la capa recién se muestra cuando el video YA está reproduciendo:
+    // así no se ve el botón de play nativo ni cuadros intermedios
+    vid.onplaying = () => { ov.style.display = 'block'; };
     vid.src = videosBlob[url] || url; // desde caché local si ya se descargó
     vid.play().catch(fin);
   }
