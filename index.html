@@ -409,6 +409,9 @@ const CONFIG = {
   refrescoIndicadoresMin: 30,
   refrescoNoticiasMin: 10,
   recargaPaginaHoras: 6,   // recarga completa (evita fugas de memoria en players)
+  // Apariencia (editable desde admin.html vía config.json)
+  tamanoTitularPx: 25,   // tamaño del texto del titular de noticias
+  cintaSegundos: 40,     // segundos por vuelta de la cinta inferior (más = más lento)
   // Secciones visibles (editable desde admin.html vía config.json)
   secciones: { clima: true, indicadores: true, noticias: true, cinta: true },
   // Videos intercalados a pantalla completa (editable desde admin.html)
@@ -683,6 +686,16 @@ async function cargarConfigRemota() {
   } catch (e) { /* sin config.json se usan los valores por defecto */ }
 }
 
+function aplicarEstilos() {
+  const t = document.getElementById('news-title');
+  const px = +CONFIG.tamanoTitularPx || 25;
+  t.style.fontSize = px + 'px';
+  // con letra más chica caben más líneas en el mismo espacio
+  t.style.webkitLineClamp = Math.max(2, Math.floor(94 / (px * 1.2)));
+  document.getElementById('ticker-inner').style.animationDuration =
+    (+CONFIG.cintaSegundos || 40) + 's';
+}
+
 function aplicarSecciones() {
   const s = CONFIG.secciones || {};
   const mapa = { clima: 'weather', indicadores: 'indicators', noticias: 'news', cinta: 'ticker' };
@@ -732,6 +745,7 @@ function reproducirVideo() {
 (async function init() {
   await cargarConfigRemota();
   aplicarSecciones();
+  aplicarEstilos();
 
   // 1) pinta al instante lo último conocido (memoria local)…
   const cacheClima = leer('clima');
