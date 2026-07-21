@@ -398,6 +398,7 @@ const CONFIG = {
   // Proxies CORS para leer RSS desde el navegador del player.
   // Se intentan en orden hasta que uno responda (si uno se cae, siguen los otros).
   proxiesRSS: [
+    u => '/api/rss?url=' + encodeURIComponent(u),  // proxy propio (función Vercel), el más confiable
     u => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
     u => 'https://corsproxy.io/?url=' + encodeURIComponent(u),
     u => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
