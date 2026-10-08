@@ -179,18 +179,26 @@ mesh(rbox(0.74, BASE, 0.44, 0.006), M.white, totem, 0, BASE / 2, 0);
   const g = new THREE.ExtrudeGeometry(s, { depth: 0.006, bevelEnabled: false, curveSegments: 24 });
   mesh(g, M.white, body, 0, 0, -D / 2);
 }
-// interior: dark back of front plate, shelf with cable channels, internal plate, floor
+// interior: floor, shelf with two round cable holes (one with grommet), front ledge, internal wall
 mesh(box(W - 2 * TH, 0.006, D - 0.02), M.whiteIn, body, 0, 0.003, 0);
+const HOLES = [[0.21, -0.012], [-0.21, -0.012]], HOLE_R = 0.034;
 {
-  const y = SHELF + 0.003, d = D - 0.02;
-  mesh(box(0.39, 0.006, d), M.whiteIn, body, 0, y, 0);
-  const sideW = (W - 2 * TH) / 2 - 0.245;
-  mesh(box(sideW, 0.006, d), M.whiteIn, body, -(0.245 + sideW / 2), y, 0);
-  mesh(box(sideW, 0.006, d), M.whiteIn, body, 0.245 + sideW / 2, y, 0);
+  const iw = (W - 2 * TH) / 2, d = (D - 0.02) / 2;
+  const sh = new THREE.Shape(); sh.moveTo(-iw, -d); sh.lineTo(iw, -d); sh.lineTo(iw, d); sh.lineTo(-iw, d); sh.lineTo(-iw, -d);
+  for (const [hx, hz] of HOLES) { const p = new THREE.Path(); p.absarc(hx, -hz, HOLE_R, 0, Math.PI * 2, true); sh.holes.push(p); }
+  const g = new THREE.ExtrudeGeometry(sh, { depth: 0.004, bevelEnabled: false, curveSegments: 32 });
+  g.rotateX(Math.PI / 2); // shape y -> world -z, extrusion -> down
+  mesh(g, M.whiteIn, body, 0, SHELF + 0.006, 0);
+  // black rubber grommet on the -x hole
+  const gr = mesh(new THREE.TorusGeometry(HOLE_R, 0.006, 12, 40), M.blackPlastic, body, HOLES[1][0], SHELF + 0.006, HOLES[1][1]); gr.rotation.x = Math.PI / 2;
+  // front ledge (bent channel) with screws, where the flat spacers sit
+  mesh(box(W - 2 * TH, 0.022, 0.03), M.whiteIn, body, 0, SHELF + 0.006 + 0.011, 0.047);
+  for (const x of [-0.25, -0.085, 0.085, 0.25]) { const sc = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 16), M.screw, body, x, SHELF + 0.029, 0.04); }
+  mesh(box(0.016, 0.0015, 0.005), M.vent, body, 0, SHELF + 0.0062, 0.012); // centring slot for the T foot
 }
-const plate = mesh(box(0.56, 0.44, 0.003), M.zinc, body, 0, 0.34, 0.0015);
-const anchors = [[-0.075, 0.31], [0.075, 0.31], [-0.075, 0.43], [0.075, 0.43]].map(([x, y]) => {
-  const a = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.006, 16), M.screw, body, x, y, -0.002); a.rotation.x = Math.PI / 2; return a;
+const plate = mesh(box(W - 2 * TH, 0.5, 0.003), M.whiteIn, body, 0, 0.31, 0.0015);
+const anchors = [[-0.107, 0.335], [-0.107, 0.405], [0.107, 0.335], [0.107, 0.405]].map(([x, y]) => {
+  const a = mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.004, 16), M.screw, body, x, y, -0.001); a.rotation.x = Math.PI / 2; return a;
 });
 // extension strip (Chilean sockets)
 const ext = new THREE.Group(); ext.position.set(0.11, 0.006, 0.012); body.add(ext);
@@ -248,58 +256,79 @@ mesh(rbox(FB, FH - 2 * FB, 0.012, 0.003), M.alu, frame, -FW / 2 + FB / 2, 0, 0);
 mesh(rbox(FB, FH - 2 * FB, 0.012, 0.003), M.alu, frame, FW / 2 - FB / 2, 0, 0);
 mesh(box(FW - 0.03, 0.004, 0.003), M.vent, frame, 0, FH / 2 - FB, 0.004); // IR strips
 mesh(box(FW - 0.03, 0.004, 0.003), M.vent, frame, 0, -FH / 2 + FB, 0.004);
-mesh(rbox(0.04, 0.016, 0.012, 0.003), M.blackPlastic, frame, FW / 2 - 0.05, -FH / 2 - 0.004, -0.006); // usb box
+mesh(rbox(0.04, 0.016, 0.012, 0.003), M.blackPlastic, frame, -(FW / 2 - 0.05), -FH / 2 - 0.004, -0.006); // usb box
 const FRAME_REST = V(0, SC, D / 2 - 0.006 - 0.006);
 // ---------- glass ----------
 const glass = mesh(rbox(0.578, 0.975, 0.005, 0.002), M.glass, body); glass.castShadow = false;
 const GLASS_REST = V(0, SC, FRAME_REST.z - 0.0085);
-// ---------- spacers ----------
-const flatSp = [-0.2, 0, 0.2].map(x => { const s = mesh(rbox(0.05, SC - FH / 2 - SHELF - 0.006, 0.02, 0.002), M.pla, body); s.userData.rest = V(x, (SHELF + 0.006 + SC - FH / 2) / 2, GLASS_REST.z + 0.006); return s; });
-const stopSp = [];
-for (const sx of [-1, 1]) for (const dy of [-0.22, 0.22]) {
+// ---------- spacers (3D printed) ----------
+M.plaWhite = new THREE.MeshStandardMaterial({ color: 0xf3f1ec, roughness: 0.7 });
+M.plaBlack = new THREE.MeshStandardMaterial({ color: 0x1c1c1e, roughness: 0.75 });
+function slot(parent, x, y, z, w, h, rx = 0) { const m = mesh(box(w, 0.0015, h), M.vent, parent, x, y, z); m.rotation.x = rx; return m; }
+// flat (white): plate with screw slot + raised step that holds frame and glass; lies on the front ledge
+const LEDGE_TOP = SHELF + 0.006 + 0.022;
+const flatSp = [-0.235, 0.235].map(x => {
   const g = new THREE.Group(); body.add(g);
-  mesh(rbox(0.058, 0.07, 0.026, 0.002), M.pla, g, 0, 0, 0);
-  mesh(rbox(0.014, 0.07, 0.008, 0.002), M.pla, g, -sx * 0.036, 0, 0.009); // tope
-  g.userData.rest = V(sx * (W / 2 - TH - 0.029), SC + dy, 0.027); stopSp.push(g);
+  mesh(rbox(0.024, 0.004, 0.06, 0.0012), M.plaWhite, g, 0, 0.002, 0);
+  mesh(rbox(0.024, 0.006, 0.03, 0.0012), M.plaWhite, g, 0, 0.007, 0.015);
+  slot(g, 0, 0.0041, -0.017, 0.006, 0.02);
+  g.userData.rest = V(x, LEDGE_TOP, 0.034); return g;
+});
+// with stop (black, "45"): plate with slot + tall block; on the side walls at the monitor corners
+const stopSp = [];
+for (const sx of [-1, 1]) for (const dy of [-0.43, 0.43]) {
+  const g = new THREE.Group(); body.add(g);           // local: plate in yz plane on wall, block towards -sx
+  mesh(rbox(0.004, 0.024, 0.07, 0.0012), M.plaBlack, g, 0, 0, 0);
+  mesh(rbox(0.058, 0.024, 0.02, 0.0015), M.plaBlack, g, -sx * 0.029, 0, 0.012);
+  const sl = mesh(box(0.0015, 0.006, 0.02), M.vent, g, -sx * 0.0021, 0, -0.022);
+  g.userData.rest = V(sx * (W / 2 - TH - 0.002), SC + dy, 0.027); stopSp.push(g);
 }
-// ---------- monitor ----------
+// ---------- monitor (rear modelled on the real LG panel) ----------
 const MW = 0.555, MH = 0.975;
+M.monRear = new THREE.MeshStandardMaterial({ color: 0x2b2d31, roughness: 0.6 });
 const monitor = new THREE.Group(); body.add(monitor);
 mesh(rbox(MW, MH, 0.012, 0.003), M.blackPlastic, monitor, 0, 0, 0.006);
 const screenMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 const screenOff = M.blackGloss;
 const screen = mesh(new THREE.PlaneGeometry(0.54, 0.95), screenOff, monitor, 0, 0, 0.0122); screen.castShadow = false;
-mesh(rbox(0.50, 0.90, 0.034, 0.012), M.blackPlastic, monitor, 0, 0, -0.016);
-// VESA holes
-for (const vx of [-0.1, 0.1]) for (const vy of [-0.1, 0.1]) { const h = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 12), M.vent, monitor, vx, vy, -0.0332); h.rotation.x = Math.PI / 2; }
-// port panel
-mesh(box(0.16, 0.035, 0.003), M.vent, monitor, 0.12, -0.40, -0.0335);
-const hdmiPorts = [0.075, 0.115].map((x, i) => { mesh(box(0.016, 0.006, 0.004), M.gold, monitor, x, -0.40, -0.035); return V(x, -0.40, -0.035); });
-mesh(box(0.016, 0.012, 0.004), M.blackGloss, monitor, 0.17, -0.40, -0.035);
+mesh(rbox(0.53, 0.95, 0.03, 0.01), M.monRear, monitor, 0, 0, -0.015);
+// side boards (raised covers on the +x side, seen on the left from behind) + vent strips
+mesh(rbox(0.12, 0.34, 0.012, 0.004), M.blackPlastic, monitor, 0.19, 0.12, -0.034);
+mesh(rbox(0.12, 0.28, 0.012, 0.004), M.blackPlastic, monitor, 0.19, -0.22, -0.034);
+for (let i = 0; i < 28; i++) mesh(box(0.0035, 0.0025, 0.002), M.vent, monitor, -0.08 + i * 0.0065, 0.41, -0.0305);
+for (let i = 0; i < 70; i++) mesh(box(0.0025, 0.0035, 0.002), M.vent, monitor, -0.2, 0.25 - i * 0.0085, -0.0305);
+// VESA holes and input panel
+for (const vx of [-0.105, 0.075]) { const h = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 12), M.vent, monitor, vx, -0.18, -0.0305); h.rotation.x = Math.PI / 2; }
+mesh(box(0.25, 0.03, 0.004), M.vent, monitor, -0.07, -0.405, -0.031);
+[-0.03, -0.06, -0.09].forEach(x => mesh(box(0.016, 0.006, 0.004), M.gold, monitor, x, -0.405, -0.033));
+[-0.13, -0.16].forEach(x => mesh(box(0.012, 0.005, 0.004), M.screw, monitor, x, -0.405, -0.033));
+mesh(box(0.02, 0.014, 0.006), M.blackGloss, monitor, 0.138, -0.455, -0.032); // AC input
 const MON_REST = V(0, SC, GLASS_REST.z - 0.0025 - 0.012);
-// T bracket
+// T bracket (white): short crossbar bolted to VESA, stem down to the shelf, foot centred on the shelf
 const tbr = new THREE.Group(); monitor.add(tbr);
-mesh(box(0.05, 0.36, 0.003), M.steel, tbr, 0, -0.03, 0);
-mesh(box(0.655, 0.05, 0.003), M.steel, tbr, 0, 0.17, 0);
-mesh(box(0.003, 0.05, 0.03), M.steel, tbr, -0.326, 0.17, 0.0135);
-mesh(box(0.003, 0.05, 0.03), M.steel, tbr, 0.326, 0.17, 0.0135);
-const TBR_REST = V(0, 0, -0.0348);
-const tBolts = [-0.1, 0.1].map(y => {
+const TB_Y = -0.18, FOOT_Y = SHELF + 0.006 - SC; // local
+mesh(rbox(0.23, 0.035, 0.004, 0.0015), M.plaWhite, tbr, -0.015, TB_Y, 0);
+mesh(rbox(0.03, TB_Y - FOOT_Y, 0.004, 0.0015), M.plaWhite, tbr, -0.015, (TB_Y + FOOT_Y) / 2, 0);
+mesh(rbox(0.03, 0.004, 0.034, 0.0015), M.plaWhite, tbr, -0.015, FOOT_Y + 0.002, 0.017);
+const footBolt = mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.006, 6), M.screw, tbr, -0.015, FOOT_Y + 0.006, 0.02);
+const TBR_REST = V(0, 0, -0.033);
+const tBolts = [-0.105, 0.075].map(x => {
   const b = new THREE.Group(); monitor.add(b);
-  const h = mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.005, 6), M.screw, b); h.rotation.x = Math.PI / 2;
-  const s = mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.016, 10), M.screw, b, 0, 0, 0.008); s.rotation.x = Math.PI / 2;
-  b.userData.rest = V(0, y, -0.039); return b;
+  const h = mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.005, 6), M.screw, b); h.rotation.x = Math.PI / 2;
+  const s2 = mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.016, 10), M.screw, b, 0, 0, 0.008); s2.rotation.x = Math.PI / 2;
+  b.userData.rest = V(x, TB_Y, -0.0375); return b;
 });
-// L plates (sides)
+// L plates (galvanised, slotted) screwed to the side walls, pressing the monitor's back edge
 const lPlates = [];
-for (const sx of [-1, 1]) for (const dy of [-0.36, 0.36]) {
+for (const sx of [-1, 1]) for (const dy of [-0.3, 0.2]) {
   const g = new THREE.Group(); body.add(g);
-  mesh(box(0.003, 0.06, 0.045), M.steel, g, 0, 0, 0);                  // on wall
-  mesh(box(0.065, 0.06, 0.003), M.steel, g, -sx * 0.0325, 0, -0.021);  // on monitor
+  mesh(box(0.003, 0.07, 0.06), M.zinc, g, 0, 0, -0.03);                      // on wall
+  mesh(box(0.07, 0.07, 0.003), M.zinc, g, -sx * 0.035, 0, 0.0);              // on monitor
+  for (const yy of [-0.022, 0, 0.022]) mesh(box(0.045, 0.008, 0.001), M.vent, g, -sx * 0.038, yy, -0.002);
   const sc = new THREE.Group(); g.add(sc);
   const hd = mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.003, 16), M.screw, sc); hd.rotation.z = Math.PI / 2;
-  sc.position.set(-sx * 0.003, 0, 0.005); sc.userData.base = sc.position.clone();
-  g.userData = { rest: V(sx * (W / 2 - TH - 0.0015), SC + dy, 0.0), sx, sc };
+  sc.position.set(-sx * 0.003, 0.015, -0.035); sc.userData.base = sc.position.clone();
+  g.userData = { rest: V(sx * (W / 2 - TH - 0.0015), SC + dy, 0.0335), sx, sc };
   lPlates.push(g);
 }
 
@@ -321,16 +350,20 @@ function makePC() {
   const rz = -d / 2 - 0.0005;
   mesh(box(0.016, 0.006, 0.002), M.screw, g, 0.03, 0, rz); mesh(box(0.016, 0.013, 0.002), M.screw, g, -0.01, 0, rz);
   const dc = mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 16), M.screw, g, 0.065, 0, rz); dc.rotation.x = Math.PI / 2;
+  // mounting ears (bottom plane) with slots
+  for (const sx of [-1, 1]) { mesh(rbox(0.024, 0.003, 0.12, 0.001), M.pcBody, g, sx * (w / 2 + 0.012), -h / 2 + 0.0015, 0); for (const zz of [-0.035, 0.035]) mesh(box(0.006, 0.004, 0.016), M.vent, g, sx * (w / 2 + 0.014), -h / 2 + 0.0015, zz); }
+  // wifi antennas on the rear panel
+  for (const ax of [-0.085, 0.085]) { const a = mesh(new THREE.CylinderGeometry(0.005, 0.0065, 0.11, 12), M.blackPlastic, g, ax, 0.004, rz - 0.055); a.rotation.x = Math.PI / 2; a.rotation.z = ax > 0 ? -0.12 : 0.12; }
   return g;
 }
 const pc = makePC(); body.add(pc);
 const PC_REST = V(0, 0.37, -0.03); const PC_ROT = -Math.PI / 2;
-// L stop plate for PC
+// L stop plate for PC: small galvanised L screwed to the wall, flange resting on top of the PC
 const pcL = new THREE.Group(); body.add(pcL);
-mesh(box(0.08, 0.003, 0.06), M.steel, pcL, 0, 0, -0.03);
-mesh(box(0.08, 0.04, 0.003), M.steel, pcL, 0, -0.02, 0.0);
-const pcLScrews = [-0.025, 0.025].map(x => { const s = new THREE.Group(); pcL.add(s); const hd = mesh(new THREE.CylinderGeometry(0.005, 0.005, 0.003, 16), M.screw, s); hd.rotation.x = Math.PI / 2; s.position.set(x, -0.025, -0.003); return s; });
-const PCL_REST = V(-0.045, 0.293, -0.0015);
+mesh(box(0.045, 0.035, 0.003), M.zinc, pcL, 0, 0.0175, -0.0015);
+mesh(box(0.045, 0.003, 0.03), M.zinc, pcL, 0, 0.0015, -0.016);
+const pcLScrews = [-0.012, 0.012].map(x => { const s2 = new THREE.Group(); pcL.add(s2); const hd = mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.003, 16), M.screw, s2); hd.rotation.x = Math.PI / 2; s2.position.set(x, 0.022, -0.0035); return s2; });
+const PCL_REST = V(0.07, 0.4455, 0);
 // PSU + tape
 const psu = new THREE.Group(); body.add(psu);
 mesh(rbox(0.11, 0.032, 0.055, 0.006), M.blackPlastic, psu, 0, 0.018, 0);
@@ -340,12 +373,12 @@ const PSU_REST = V(-0.17, 0.006, -0.01);
 // ---------- cables (grow with drawRange) ----------
 function grow(m, k) { const seg = m.userData.seg; m.geometry.setDrawRange(0, Math.floor(seg * clamp(k)) * 10 * 6); m.visible = k > 0.001; }
 const mp = (x, y, z) => [MON_REST.x + x, MON_REST.y + y, MON_REST.z + z];
-const hdmiCable = tube([mp(0.075, -0.40, -0.04), mp(0.07, -0.43, -0.055), [0.2, SHELF + 0.03, -0.045], [0.22, SHELF, -0.045], [0.21, 0.52, -0.045], [0.12, 0.44, -0.06],
-  [0.09, 0.30, -0.065], [0.06, 0.26, -0.06], [0.04, 0.262, -0.045], [0.03, 0.288, -0.04]], 0.0038, M.cable, body, 160);
-const HDMI_SPLIT = 0.52;
-const monPower = tube([mp(0.17, -0.40, -0.04), mp(0.17, -0.44, -0.05), [0.23, SHELF + 0.02, -0.035], [0.225, SHELF - 0.02, -0.035], [0.24, 0.35, -0.04], [0.22, 0.12, -0.035], [0.15, 0.07, 0.0], [0.145, 0.052, 0.012]], 0.0035, M.cable, body, 140);
+const hdmiCable = tube([mp(-0.03, -0.405, -0.036), mp(-0.05, -0.44, -0.05), [-0.21, SHELF + 0.04, -0.012], [-0.21, SHELF - 0.02, -0.012], [-0.16, 0.5, -0.045],
+  [-0.14, 0.38, -0.068], [-0.12, 0.27, -0.06], [-0.02, 0.252, -0.045], [0.03, 0.27, -0.03], [0.03, 0.288, -0.03]], 0.0038, M.cable, body, 160);
+const HDMI_SPLIT = (() => { const c = hdmiCable.userData.curve, L2 = c.getLengths(1000); return L2[Math.round(4 / 9 * 1000)] / L2[1000]; })();
+const monPower = tube([mp(0.138, -0.46, -0.036), mp(0.16, -0.5, -0.045), [0.21, SHELF + 0.04, -0.012], [0.21, SHELF - 0.02, -0.012], [0.25, 0.35, -0.03], [0.24, 0.12, -0.03], [0.15, 0.07, 0.0], [0.145, 0.052, 0.012]], 0.0035, M.cable, body, 140);
 const monPlug = mesh(rbox(0.022, 0.028, 0.03, 0.004), M.blackPlastic, body, 0.145, 0.058, 0.012);
-const usbTouch = tube([[FW / 2 - 0.05, SC - FH / 2 - 0.004, FRAME_REST.z - 0.012], [0.25, SHELF + 0.03, 0.0], [0.235, SHELF, -0.035], [0.18, 0.52, -0.05], [0.06, 0.48, -0.06], [-0.035, 0.46, -0.055], [-0.035, 0.448, -0.04]], 0.0028, M.cableGrey, body, 140);
+const usbTouch = tube([[-(FW / 2 - 0.05), SC - FH / 2 - 0.004, FRAME_REST.z - 0.012], [-0.235, SHELF + 0.04, 0.0], [-0.2, SHELF + 0.02, -0.015], [-0.2, SHELF - 0.02, -0.015], [-0.17, 0.5, -0.05], [-0.05, 0.47, -0.066], [-0.035, 0.46, -0.04], [-0.035, 0.448, -0.03]], 0.0028, M.cableGrey, body, 140);
 const psuDC = tube([[-0.12, 0.025, -0.01], [-0.05, 0.06, -0.04], [0.04, 0.2, -0.06], [0.07, 0.262, -0.055], [0.065, 0.288, -0.04]], 0.0028, M.cable, body, 100);
 const psuAC = tube([[-0.225, 0.025, -0.01], [-0.25, 0.03, 0.03], [-0.1, 0.03, 0.045], [0.0, 0.04, 0.03], [0.075, 0.052, 0.012]], 0.0035, M.cable, body, 100);
 const psuPlug = mesh(rbox(0.022, 0.028, 0.03, 0.004), M.blackPlastic, body, 0.075, 0.058, 0.012);
@@ -435,17 +468,17 @@ const PALLET_Y = 0.14;
 // ---------- bench (step 0) ----------
 const BENCH_X = -6;
 const bench = new THREE.Group(); bench.position.set(BENCH_X, 0, 0); scene.add(bench);
-mesh(rbox(1.4, 0.04, 0.7, 0.006), M.table, bench, 0, 0.74, 0);
-for (const x of [-0.65, 0.65]) for (const z of [-0.3, 0.3]) mesh(box(0.045, 0.72, 0.045), M.alu, bench, x, 0.36, z);
-const benchMon = new THREE.Group(); benchMon.position.set(-0.12, 0.76, -0.12); bench.add(benchMon);
+mesh(rbox(1.2, 0.04, 0.7, 0.006), M.table, bench, 0, 0.74, 0);
+for (const x of [-0.55, 0.55]) for (const z of [-0.3, 0.3]) mesh(box(0.045, 0.72, 0.045), M.alu, bench, x, 0.36, z);
+const benchMon = new THREE.Group(); benchMon.position.set(-0.12, 0.7625, -0.12); bench.add(benchMon);
 mesh(rbox(0.56, 0.33, 0.02, 0.004), M.blackPlastic, benchMon, 0, 0.33, 0);
 mesh(box(0.05, 0.2, 0.02), M.blackPlastic, benchMon, 0, 0.1, -0.03);
 mesh(rbox(0.22, 0.012, 0.16, 0.004), M.blackPlastic, benchMon, 0, 0.006, -0.02);
 const benchScr = mesh(new THREE.PlaneGeometry(0.545, 0.307), new THREE.MeshBasicMaterial({ color: 0xffffff }), benchMon, 0, 0.33, 0.0105);
-const kb = mesh(rbox(0.38, 0.015, 0.12, 0.004), M.blackPlastic, bench, -0.12, 0.768, 0.18);
+const kb = mesh(rbox(0.38, 0.015, 0.12, 0.004), M.blackPlastic, bench, -0.12, 0.7705, 0.18);
 for (let i = 0; i < 5; i++) for (let j = 0; j < 14; j++) mesh(box(0.019, 0.004, 0.017), M.btn, kb, -0.165 + j * 0.0254, 0.009, -0.045 + i * 0.022);
-const benchPC = makePC(); benchPC.position.set(0.42, 0.76 + 0.029, -0.02); benchPC.rotation.y = -0.5; bench.add(benchPC);
-tube([[0.33, 0.79, -0.08], [0.2, 0.765, -0.15], [0.0, 0.765, -0.16], [-0.12, 0.78, -0.155]], 0.003, M.cable, bench);
+const benchPC = makePC(); benchPC.position.set(0.33, 0.7625 + 0.029, -0.02); benchPC.rotation.y = -0.5; bench.add(benchPC);
+tube([[0.25, 0.79, -0.07], [0.15, 0.7665, -0.15], [0.0, 0.7665, -0.17], [-0.12, 0.785, -0.17]], 0.003, M.cable, bench);
 
 // ---------- screen canvases ----------
 const TS = canvasTex(640, 1126); screenMat.map = TS.t;
@@ -646,7 +679,7 @@ const p = P;
 const CAM = [
   [0, [2.6, 1.55, 3.6], [0, 0.95, 0]], [8, [-1.9, 1.35, 3.7], [0, 0.95, 0]],
   [8.001, [0.9, 3.3, 4.9], [-0.55, 0.4, 0.45]], [18, [0.6, 3.1, 4.7], [-0.55, 0.4, 0.45]],
-  [18.001, [BENCH_X + 0.9, 1.45, 1.7], [BENCH_X - 0.05, 0.95, -0.1]], [29, [BENCH_X + 0.7, 1.4, 1.45], [BENCH_X - 0.05, 0.95, -0.1]],
+  [18.001, [BENCH_X + 1.0, 1.5, 1.95], [BENCH_X + 0.12, 0.92, -0.05]], [29, [BENCH_X + 0.8, 1.45, 1.7], [BENCH_X + 0.12, 0.92, -0.05]],
   [29.001, [1.5, 1.6, -3.5], [0, 1.0, 0]], [30.4, [1.0, 1.5, -2.7], [0, 1.12, 0]], [35, [1.0, 1.5, -2.7], [0, 1.12, 0]],
   [37.2, [0.9, 1.9, -2.0], [0, 1.05, 0]], [44.5, [0.8, 1.6, -1.9], [0, 1.0, 0]], [46.5, [0.7, 1.25, -1.5], [0, 0.78, 0]], [49, [0.9, 1.5, -1.7], [0, 1.05, 0]], [53, [0.9, 1.5, -1.7], [0, 1.05, 0]],
   [54.5, [-0.25, 1.15, -2.3], [-0.8, 0.6, -0.45]], [58.2, [-0.25, 1.15, -2.3], [-0.8, 0.6, -0.45]], [60.6, [1.0, 1.6, -2.9], [0, 1.05, 0]],
@@ -713,11 +746,11 @@ function state(t) {
   stopSp.forEach((s, i) => { const t0 = 47.8 + i * 0.35; const r = s.userData.rest; setT(s, installedAll ? r : path(t, [[t0, [r.x, r.y, r.z - 0.3]], [t0 + 0.9, [r.x, r.y, r.z]]])); s.visible = installedAll || t >= t0; });
   // --- monitor + T bracket (staging at left, back facing camera)
   {
-    const STG = [-0.8, 0.47, -0.45];
+    const STG = [-0.8, 0.53, -0.45];
     let pos, ry = 0;
     if (installedAll) pos = MON_REST;
     else if (t < p.p2[0]) { pos = V(...STG); }
-    else pos = path(t, [[58.5, STG], [59.6, [-0.4, SC + 0.12, -0.55]], [60.6, [0, SC, -0.5]], [62.2, [MON_REST.x, MON_REST.y, MON_REST.z]]]);
+    else pos = path(t, [[58.5, STG], [59.6, [-0.4, SC + 0.12, -0.55]], [60.5, [0, SC + 0.04, -0.5]], [61.6, [0, SC + 0.04, MON_REST.z]], [62.3, [MON_REST.x, MON_REST.y, MON_REST.z]]]);
     if (!installedAll && t >= p.p1[0] && t < 58.5) pos = V(...STG);
     setT(monitor, pos); monitor.rotation.y = ry;
     monitor.visible = installedAll || (t >= p.p2[0] - 0.5 && t < p.p7[0]) || t >= 62.2;
@@ -827,15 +860,15 @@ function annotations() {
     { t0: 29.6, t1: 33, at: () => wp(UP.g, 0, 0.1, -0.005), dx: 160, dy: -230, text: 'Tapa trasera superior', sub: '5 tornillos' },
     { t0: 38.4, t1: 41.6, at: () => wp(frame, -0.29, 0.25, 0), dx: -130, dy: -60, text: 'Marco táctil' },
     { t0: 42.2, t1: 45, at: () => wp(glass, 0.2, 0.3, 0), dx: 150, dy: -80, text: 'Vidrio templado', sub: 'presiona el marco' },
-    { t0: 45.8, t1: 49, at: () => wp(flatSp[2], 0, 0, 0), dx: 170, dy: 90, text: 'Separadores planos', sub: 'abajo · sujetan marco y vidrio' },
-    { t0: 49.2, t1: 52.8, at: () => wp(stopSp[3], 0, 0, -0.013), dx: 150, dy: -90, text: 'Separadores con tope', sub: 'a los lados · sujetan el monitor' },
-    { t0: 55.2, t1: 58.4, at: () => wp(tbr, 0.2, 0.17, 0), dx: 140, dy: -110, text: 'T de metal', sub: 'centra y sujeta el monitor' },
+    { t0: 45.8, t1: 49, at: () => wp(flatSp[1], 0, 0.006, 0.01), dx: -200, dy: 90, text: 'Separadores planos (blancos)', sub: 'abajo · sujetan marco y vidrio' },
+    { t0: 49.2, t1: 52.8, at: () => wp(stopSp[3], -0.03, 0, 0.012), dx: 150, dy: -90, text: 'Separadores con tope (negros)', sub: 'a los lados · sujetan el monitor' },
+    { t0: 55.2, t1: 58.4, at: () => wp(tbr, 0.09, TB_Y, 0), dx: -170, dy: -110, text: 'T de metal', sub: 'centra y sujeta el monitor' },
     { t0: 65, t1: 72.5, at: () => wp(lPlates[1], 0.02, 0, -0.021), dx: 150, dy: -60, text: 'Placas en L', sub: '4 · atornilladas a los costados' },
-    { t0: 74, t1: 78, at: () => wp(monitor, 0.075, -0.40, -0.036), dx: 160, dy: -80, text: 'HDMI 1' },
-    { t0: 77.5, t1: 81, at: () => wp(body, 0.22, SHELF, -0.04), dx: 190, dy: 20, text: 'Canal de cables' },
+    { t0: 74, t1: 78, at: () => wp(monitor, -0.03, -0.405, -0.034), dx: 160, dy: -80, text: 'HDMI 1' },
+    { t0: 77.5, t1: 81, at: () => wp(body, -0.21, SHELF + 0.006, -0.012), dx: -190, dy: 30, text: 'Pasacables' },
     { t0: 82, t1: 86.6, at: () => wp(ext, 0.03, 0.04, 0), dx: 170, dy: 60, text: 'Extensión' },
-    { t0: 105.6, t1: 110, at: () => wp(body, 0.075, 0.43, -0.002), dx: 180, dy: -90, text: 'Puntos de anclaje' },
-    { t0: 111.6, t1: 114, at: () => wp(pcL, 0, 0, -0.04), dx: -170, dy: 70, text: 'Placa en L', sub: 'tope del mini PC' },
+    { t0: 105.6, t1: 110, at: () => wp(body, -0.107, 0.405, -0.002), dx: -180, dy: -90, text: 'Puntos de anclaje' },
+    { t0: 111.6, t1: 114, at: () => wp(pcL, 0, 0.02, -0.003), dx: 170, dy: -70, text: 'Placa en L', sub: 'tope del mini PC' },
     { t0: 114.2, t1: 118.6, at: () => wp(psu, 0, 0.03, 0), dx: -180, dy: -60, text: 'Fuente de poder', sub: 'cinta doble contacto' },
     { t0: 119, t1: 121, at: () => wp(pc, 0.03, 0, -0.08), dx: 180, dy: 60, text: 'HDMI al PC' },
     { t0: 121.4, t1: 125.4, at: () => wp(body, -0.035, 0.448, -0.04), dx: 180, dy: -90, text: 'USB marco táctil' },
@@ -847,8 +880,9 @@ function annotations() {
   MARKS = [
     { t0: 29.8, t1: 33.8, pts: () => UP.screws.map(s => wp(s, 0, 0, -0.002)), r: 20 },
     { t0: 56, t1: 58.2, pts: () => tBolts.map(b => wp(b)), r: 22 },
-    { t0: 73.8, t1: 76.5, pts: () => [wp(monitor, 0.075, -0.40, -0.036)], r: 24 },
-    { t0: 77.5, t1: 80, pts: () => [wp(body, 0.22, SHELF, -0.03), wp(body, -0.22, SHELF, -0.03)], r: 28 },
+    { t0: 73.8, t1: 76.5, pts: () => [wp(monitor, -0.03, -0.405, -0.034)], r: 24 },
+    { t0: 77.5, t1: 80, pts: () => HOLES.map(([x, z]) => wp(body, x, SHELF + 0.006, z)), r: 30 },
+    { t0: 61.4, t1: 63.4, pts: () => [wp(body, 0, SHELF + 0.006, 0.012)], r: 26 },
     { t0: 99.6, t1: 102.6, pts: () => LP.screws.map(s => wp(s, 0, 0, -0.002)), r: 20 },
     { t0: 104.4, t1: 106.2, pts: () => anchors.map(a => wp(a)), r: 16 },
     { t0: 108.6, t1: 111, pts: () => [wp(pc, -0.07, 0.002, 0.076), wp(pc, -0.02, 0, 0.076), wp(pc, 0.027, 0, 0.076)], r: 18 },
@@ -856,8 +890,7 @@ function annotations() {
   ];
   ARROWS = [
     { t0: 108.6, t1: 111, from: () => wp(pc, 0.12, 0, -0.02), to: () => wp(pc, 0.12, 0, 0.16) },
-    { t0: 59.4, t1: 62.2, from: () => wp(body, -0.36, SC + 0.17, -0.03), to: () => wp(body, -0.31, SC + 0.17, -0.03) },
-    { t0: 59.4, t1: 62.2, from: () => wp(body, 0.36, SC + 0.17, -0.03), to: () => wp(body, 0.31, SC + 0.17, -0.03) },
+    { t0: 60.6, t1: 62.6, from: () => wp(body, 0, SHELF + 0.12, 0.012), to: () => wp(body, 0, SHELF + 0.02, 0.012) },
   ];
 }
 annotations();
