@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Armado Tótem</title>
+<style>
+@font-face{font-family:M;font-weight:400;src:url(node_modules/@fontsource/montserrat/files/montserrat-latin-400-normal.woff2)}
+@font-face{font-family:M;font-weight:600;src:url(node_modules/@fontsource/montserrat/files/montserrat-latin-600-normal.woff2)}
+@font-face{font-family:M;font-weight:700;src:url(node_modules/@fontsource/montserrat/files/montserrat-latin-700-normal.woff2)}
+@font-face{font-family:M;font-weight:800;src:url(node_modules/@fontsource/montserrat/files/montserrat-latin-800-normal.woff2)}
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;font-family:M,sans-serif}
+body{background:radial-gradient(ellipse 90% 80% at 38% 42%,#f4f5f7 0%,#e2e5ea 55%,#c9ced6 100%)}
+#c{position:absolute;inset:0}
+#svg{position:absolute;inset:0;pointer-events:none}
+.lbl{position:absolute;white-space:nowrap;background:#fff;color:#14202e;font-weight:700;font-size:25px;
+  padding:9px 18px;border-radius:10px;box-shadow:0 6px 22px rgba(0,0,0,.18);border-left:6px solid #ff8a00}
+.lbl small{display:block;font-weight:600;font-size:18px;color:#5a6676;margin-top:2px}
+#panel{position:absolute;right:40px;top:40px;bottom:40px;width:540px;box-sizing:border-box;padding:44px 44px;
+  background:rgba(11,19,31,.92);border-radius:22px;color:#fff;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#panel .logo{height:46px;opacity:.95}
+#badge{display:inline-block;margin-top:44px;background:#ff8a00;color:#111;font-weight:800;font-size:22px;letter-spacing:3px;
+  padding:8px 18px;border-radius:30px}
+#title{font-weight:800;font-size:46px;line-height:1.12;margin:18px 0 30px}
+#bul{list-style:none;margin:0;padding:0}
+#bul li{position:relative;padding:0 0 0 48px;margin:0 0 22px;font-size:25px;line-height:1.32;font-weight:600;color:#fff;transition:none}
+#bul li .ck{position:absolute;left:0;top:1px;width:30px;height:30px;border-radius:50%;border:3px solid #3b4a5e;box-sizing:border-box}
+#bul li.done{color:#9fb0c4}
+#bul li.done .ck{background:#2ec27e;border-color:#2ec27e}
+#bul li.done .ck:after{content:"";position:absolute;left:8px;top:3px;width:7px;height:13px;border:solid #fff;border-width:0 3px 3px 0;transform:rotate(45deg)}
+#bul li.act .ck{border-color:#ff8a00;background:#ff8a00}
+#dots{position:absolute;left:44px;right:44px;bottom:40px;display:flex;gap:10px}
+#dots div{flex:1;height:8px;border-radius:4px;background:#2a3748}
+#dots div.on{background:#ff8a00}
+#dots div.past{background:#5b6b80}
+#fade{position:absolute;inset:0;background:#0b131f}
+#card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+#card img{height:150px;margin-bottom:46px}
+#card h1{font-size:76px;font-weight:800;margin:0;letter-spacing:-1px}
+#card h2{font-size:34px;font-weight:600;margin:16px 0 0;color:#ff8a00;letter-spacing:4px}
+#cap{position:absolute;left:0;right:0;bottom:70px;text-align:center}
+#cap span{display:inline-block;background:rgba(11,19,31,.88);color:#fff;font-weight:700;font-size:34px;padding:16px 34px;border-radius:14px}
+</style>
+<script type="importmap">{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}</script>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<svg id="svg" width="1920" height="1080"></svg>
+<div id="labels"></div>
+<div id="cap"><span></span></div>
+<div id="panel">
+  <img class="logo" src="logo.png">
+  <div><span id="badge"></span></div>
+  <div id="title"></div>
+  <ul id="bul"></ul>
+  <div id="dots"></div>
+</div>
+<div id="fade"></div>
+<div id="card"><img src="logo.png"><h1></h1><h2></h2></div>
+<script type="module" src="scene.js"></script>
+</body>
+</html>
